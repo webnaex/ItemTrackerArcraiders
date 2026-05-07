@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TransferTracker — Arc Raiders</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='4' fill='%23080a0c'/><rect x='4' y='4' width='24' height='24' rx='2' fill='none' stroke='%2300c8ff' stroke-width='1.5'/><path d='M10 16h12M18 12l4 4-4 4' stroke='%2300c8ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/><rect x='6' y='8' width='8' height='6' rx='1' fill='%2300c8ff' opacity='0.3'/><rect x='6' y='18' width='8' height='6' rx='1' fill='%23ff9500' opacity='0.4'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -577,6 +578,24 @@
         </div>
       </div>
 
+      <!-- Backup Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title" data-i18n="admin.backup_title">💾 Snapshots / Backup</div>
+          <button class="btn btn-accent btn-sm" onclick="createBackup()" style="margin-left:auto;" data-i18n="admin.backup_create">+ Snapshot</button>
+        </div>
+        <div class="panel-body" style="padding:0 18px 12px;">
+          <div style="display:flex;gap:8px;padding:12px 0;border-bottom:1px solid var(--border);">
+            <input type="text" id="backup-label" data-i18n-ph="admin.backup_label"
+              placeholder="Bezeichnung (optional)…"
+              style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 12px;outline:none;">
+          </div>
+          <div id="backup-list" style="max-height:300px;overflow-y:auto;">
+            <div class="empty-state" style="padding:24px 0;" data-i18n="admin.backup_empty">Keine Snapshots vorhanden.</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Users Panel -->
       <div class="panel">
         <div class="panel-header">
@@ -683,6 +702,16 @@ const T = {
     'status.done':    'DONE',
     // Admin Settings
     'admin.settings_title': '⚙ App-Einstellungen',
+    'admin.backup_title':   '💾 Snapshots / Backup',
+    'admin.backup_create':  '+ Snapshot',
+    'admin.backup_label':   'Bezeichnung (optional)…',
+    'admin.backup_empty':   'Keine Snapshots vorhanden.',
+    'admin.backup_restore': '↩ Restore',
+    'admin.backup_confirm': 'Snapshot "{l}" wiederherstellen? Alle aktuellen Transfers werden ersetzt!',
+    'admin.backup_del_confirm': 'Snapshot löschen?',
+    'admin.backup_ok':      'Snapshot erstellt ✓',
+    'admin.restore_ok':     'Wiederhergestellt ✓',
+    'admin.pw_short':       'Passwort zu kurz',
     'admin.default_lang':   'Standard-Sprache',
     // Misc
     'api.ready':   'API BEREIT',
@@ -750,6 +779,16 @@ const T = {
     'status.done':    'DONE',
     // Admin Settings
     'admin.settings_title': '⚙ App Settings',
+    'admin.backup_title':   '💾 Snapshots / Backup',
+    'admin.backup_create':  '+ Snapshot',
+    'admin.backup_label':   'Label (optional)…',
+    'admin.backup_empty':   'No snapshots yet.',
+    'admin.backup_restore': '↩ Restore',
+    'admin.backup_confirm': 'Restore snapshot "{l}"? All current transfers will be replaced!',
+    'admin.backup_del_confirm': 'Delete snapshot?',
+    'admin.backup_ok':      'Snapshot created ✓',
+    'admin.restore_ok':     'Restored ✓',
+    'admin.pw_short':       'Password too short',
     'admin.default_lang':   'Default Language',
     // Misc
     'api.ready':   'API READY',
@@ -914,7 +953,7 @@ function setTab(tab) {
 
   if (tab === 'nach') loadTransfers();
   if (tab === 'history') loadHistory();
-  if (tab === 'admin') { loadAdminUsers(); loadAdminSettings(); }
+  if (tab === 'admin') { loadAdminUsers(); loadAdminSettings(); loadBackups(); }
 }
 
 // ── Stash ──────────────────────────────────────────────────────────────────
@@ -1194,8 +1233,10 @@ async function deleteTransfer(id) {
     try {
       await api('DELETE', `/api/transfers/${id}`);
     } catch (err) {
-    toast(err.message, 'err');
-  }
+      toast(err.message, 'err');
+      loadTransfers();
+    }
+  }, 30000);
 }
 
 // ── History ────────────────────────────────────────────────────────────────
@@ -1241,6 +1282,64 @@ async function loadHistory() {
 }
 
 // ── Admin: Benutzer-Verwaltung ────────────────────────────────────────────────
+// ── Backup / Snapshot ─────────────────────────────────────────────────────
+async function loadBackups() {
+  const list = document.getElementById('backup-list');
+  if (!list) return;
+  try {
+    const backups = await api('GET', '/api/admin/backups');
+    if (!backups.length) {
+      list.innerHTML = `<div class="empty-state" style="padding:24px 0;" data-i18n="admin.backup_empty">${t('admin.backup_empty')}</div>`;
+      return;
+    }
+    list.innerHTML = backups.map(b => {
+      const d = new Date(b.created_at);
+      const dateStr = d.toLocaleDateString('de-DE') + ' um ' + d.toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-family:var(--mono);font-size:13px;color:var(--text);">${b.label}</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-top:2px;">${dateStr}</div>
+        </div>
+        <button class="btn btn-sm" onclick="restoreBackup(${b.id},'${b.label.replace(/'/g,"\'")}')"
+          style="border-color:var(--ok);color:var(--ok);background:var(--ok-dim);white-space:nowrap;">
+          ${t('admin.backup_restore')}
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="deleteBackup(${b.id})" style="padding:5px 8px;">🗑</button>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    if (list) list.innerHTML = `<div style="color:var(--danger);padding:12px 0;font-family:var(--mono);font-size:12px;">${err.message}</div>`;
+  }
+}
+
+async function createBackup() {
+  const label = document.getElementById('backup-label')?.value?.trim() || '';
+  try {
+    await api('POST', '/api/admin/backups', { label });
+    document.getElementById('backup-label').value = '';
+    toast(t('admin.backup_ok'), 'ok');
+    loadBackups();
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+async function restoreBackup(id, label) {
+  if (!confirm(t('admin.backup_confirm', {l: label}))) return;
+  try {
+    const result = await api('POST', `/api/admin/backups/${id}/restore`);
+    toast(t('admin.restore_ok') + ` (${result.count} Items)`, 'ok');
+    loadBackups();
+    loadTransfers();
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+async function deleteBackup(id) {
+  if (!confirm(t('admin.backup_del_confirm'))) return;
+  try {
+    await api('DELETE', `/api/admin/backups/${id}`);
+    loadBackups();
+  } catch (err) { toast(err.message, 'err'); }
+}
+
 async function setDefaultLang(lang) {
   try {
     await api('PUT', '/api/admin/settings', { key: 'default_lang', value: lang });

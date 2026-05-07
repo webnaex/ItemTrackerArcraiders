@@ -46,6 +46,13 @@ export async function initDB() {
     );
     INSERT INTO app_settings (key, value) VALUES ('default_lang', 'de')
       ON CONFLICT (key) DO NOTHING;
+
+    CREATE TABLE IF NOT EXISTS transfer_backups (
+      id SERIAL PRIMARY KEY,
+      label TEXT NOT NULL,
+      snapshot JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
   console.log('✅ DB initialisiert');
 }

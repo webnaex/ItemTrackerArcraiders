@@ -152,6 +152,65 @@ app.put('/api/admin/settings', adminOnly, async (req, res) => {
   }
 });
 
+// ─── Backup / Snapshot ───────────────────────────────────────────────────────
+app.get('/api/admin/backups', adminOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, label, created_at FROM transfer_backups ORDER BY created_at DESC LIMIT 50'
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/backups', adminOnly, async (req, res) => {
+  const { label } = req.body;
+  try {
+    const { rows: transfers } = await pool.query('SELECT * FROM transfers ORDER BY created_at');
+    const ts = new Date();
+    const autoLabel = label?.trim() ||
+      `${ts.getFullYear()}${String(ts.getMonth()+1).padStart(2,'0')}${String(ts.getDate()).padStart(2,'0')}_${String(ts.getHours()).padStart(2,'0')}${String(ts.getMinutes()).padStart(2,'0')}`;
+    const { rows } = await pool.query(
+      'INSERT INTO transfer_backups (label, snapshot) VALUES ($1, $2) RETURNING id, label, created_at',
+      [autoLabel, JSON.stringify(transfers)]
+    );
+    res.json(rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/backups/:id/restore', adminOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT snapshot FROM transfer_backups WHERE id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Backup nicht gefunden' });
+    const transfers = rows[0].snapshot;
+
+    // Alle aktuellen Transfers löschen und aus Snapshot wiederherstellen
+    await pool.query('DELETE FROM transfers');
+    for (const t of transfers) {
+      await pool.query(
+        `INSERT INTO transfers
+          (id, expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
+           quantity_transferred, quantity_returned, from_account, to_account,
+           status, notes, created_at, returned_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         ON CONFLICT (id) DO NOTHING`,
+        [t.id, t.expedition_label, t.item_id, t.item_name, t.item_name_en, t.item_type,
+         t.icon_url, t.quantity_transferred, t.quantity_returned, t.from_account,
+         t.to_account, t.status, t.notes, t.created_at, t.returned_at]
+      );
+    }
+    // Sequence zurücksetzen
+    await pool.query("SELECT setval('transfers_id_seq', COALESCE((SELECT MAX(id) FROM transfers), 1))");
+    res.json({ success: true, count: transfers.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/backups/:id', adminOnly, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM transfer_backups WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ─── Stash laden (Admin only) ─────────────────────────────────────────────────
 app.get('/api/stash/:account', adminOnly, async (req, res) => {
   const { account } = req.params;
