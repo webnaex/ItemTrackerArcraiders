@@ -263,6 +263,17 @@
   }
   .remove-btn:hover { color: var(--danger); }
 
+  .acct-toggle { display:flex; gap:4px; margin-top:6px; }
+  .acct-btn {
+    flex:1; padding:4px 0; font-family:var(--mono); font-size:11px;
+    border:1px solid var(--border2); background:var(--bg3); color:var(--text-muted);
+    cursor:pointer; text-transform:uppercase; letter-spacing:0.05em;
+    transition:all 0.15s;
+  }
+  .acct-btn.active-consta { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
+  .acct-btn.active-junez  { background:var(--warn-dim);   border-color:var(--warn);   color:var(--warn); }
+  .acct-btn:hover:not(.active-consta):not(.active-junez) { border-color:var(--border2); color:var(--text); }
+
   .selection-footer {
     padding: 16px 18px; border-top: 1px solid var(--border);
     display: flex; flex-direction: column; gap: 10px;
@@ -429,13 +440,6 @@
           <div class="expedition-row">
             <label>EXPEDITION</label>
             <input type="text" id="expedition-label" value="Season 1" placeholder="z.B. Season 1">
-          </div>
-          <div class="expedition-row">
-            <label>ZU ACCOUNT</label>
-            <select id="to-account" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;outline:none;">
-              <option value="consta">consta</option>
-              <option value="junez">junez</option>
-            </select>
           </div>
           <button class="btn btn-accent" onclick="confirmTransfer()" id="btn-confirm" disabled>
             Transfer bestätigen
@@ -678,7 +682,7 @@ function toggleItem(id) {
     delete selection[id];
   } else {
     const qty = item.quantity ?? item.qty ?? 1;
-    selection[id] = { item, qty };
+    selection[id] = { item, qty, to_account: 'consta' };
   }
   renderStash();
   renderSelection();
@@ -697,18 +701,23 @@ function renderSelection() {
     return;
   }
 
-  list.innerHTML = entries.map(({ item, qty }) => {
+  list.innerHTML = entries.map(({ item, qty, to_account }) => {
     const id = item.id || item.item_id;
     const name = item.name?.de || item.name?.en || item.name || 'Unbekannt';
     const max = item.quantity ?? item.qty ?? 999;
+    const acct = to_account || 'consta';
 
-    return `<div class="selection-item">
+    return `<div class="selection-item" style="flex-wrap:wrap;gap:4px;">
       <div class="item-info" style="flex:1;min-width:0;">
         <div class="item-name">${name}</div>
       </div>
       <input class="qty-input" type="number" min="1" max="${max}" value="${qty}"
         onchange="updateQty('${id}', this.value)" onclick="event.stopPropagation()">
       <button class="remove-btn" onclick="removeSelection('${id}')">×</button>
+      <div class="acct-toggle" style="width:100%;padding:0 2px;">
+        <button class="acct-btn ${acct==='consta'?'active-consta':''}" onclick="setSelectionAcct('${id}','consta')">Consta</button>
+        <button class="acct-btn ${acct==='junez'?'active-junez':''}"  onclick="setSelectionAcct('${id}','junez')">Junez</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -716,6 +725,13 @@ function renderSelection() {
 function updateQty(id, val) {
   if (selection[id]) {
     selection[id].qty = Math.max(1, parseInt(val) || 1);
+  }
+}
+
+function setSelectionAcct(id, acct) {
+  if (selection[id]) {
+    selection[id].to_account = acct;
+    renderSelection();
   }
 }
 
@@ -730,19 +746,19 @@ async function confirmTransfer() {
   if (!entries.length) return;
 
   const expedition_label = document.getElementById('expedition-label').value.trim() || 'aktuell';
-  const to_account = document.getElementById('to-account').value || 'consta';
 
-  const items = entries.map(({ item, qty }) => ({
+  const items = entries.map(({ item, qty, to_account }) => ({
     id: item.id || item.item_id,
     name: item.name?.de || item.name?.en || item.name,
     name_en: item.name?.en,
     type: item.type || item.item_type,
     icon_url: item.icon_url || item.icon,
     quantity: qty,
+    to_account: to_account || 'consta',
   }));
 
   try {
-    await api('POST', '/api/transfers', { expedition_label, to_account, items });
+    await api('POST', '/api/transfers', { expedition_label, items });
     selection = {};
     renderStash();
     renderSelection();

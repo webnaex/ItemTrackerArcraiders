@@ -156,11 +156,15 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
   if (!items?.length) return res.status(400).json({ error: 'Keine Items angegeben' });
 
   const validToAccounts = ['consta', 'junez'];
-  const targetAccount = validToAccounts.includes(to_account) ? to_account : 'consta';
 
   try {
     const inserted = [];
     for (const item of items) {
+      // Per-Item to_account hat Vorrang vor Body-Level to_account
+      const target = validToAccounts.includes(item.to_account)
+        ? item.to_account
+        : validToAccounts.includes(to_account) ? to_account : 'consta';
+
       const { rows } = await pool.query(
         `INSERT INTO transfers
           (expedition_label, item_id, item_name, item_name_en, item_type, icon_url, quantity_transferred, from_account, to_account)
@@ -175,7 +179,7 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
           item.icon_url || null,
           item.quantity,
           'silverbase',
-          targetAccount,
+          target,
         ]
       );
       inserted.push(rows[0]);
