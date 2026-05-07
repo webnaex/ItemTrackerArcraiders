@@ -424,20 +424,27 @@
           <div class="panel-title">Transfer</div>
           <div class="panel-subtitle" id="selection-count">0 Items</div>
         </div>
-        <div class="panel-body" id="selection-list">
-          <div class="empty-state" style="padding:40px 16px;">
-            <div class="icon">🎯</div>
-            Items aus dem Stash auswählen.
-          </div>
-        </div>
         <div class="selection-footer">
           <div class="expedition-row">
             <label>EXPEDITION</label>
             <input type="text" id="expedition-label" value="Season 1" placeholder="z.B. Season 1">
           </div>
+          <div class="expedition-row">
+            <label>ZU ACCOUNT</label>
+            <select id="to-account" style="flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;outline:none;">
+              <option value="consta">consta</option>
+              <option value="junez">junez</option>
+            </select>
+          </div>
           <button class="btn btn-accent" onclick="confirmTransfer()" id="btn-confirm" disabled>
             Transfer bestätigen
           </button>
+        </div>
+        <div class="panel-body" id="selection-list">
+          <div class="empty-state" style="padding:40px 16px;">
+            <div class="icon">🎯</div>
+            Items aus dem Stash auswählen.
+          </div>
         </div>
       </div>
     </div>
@@ -488,6 +495,8 @@
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 let PASSWORD = '';
+let ROLE = '';        // 'admin' | 'view' | 'user'
+let USER_ACCOUNT = null; // 'consta' | 'junez' | null
 let stashItems = [];
 let filteredItems = [];
 let selection = {}; // { itemId: { item, qty } }
@@ -502,20 +511,51 @@ async function doLogin() {
   const pw = document.getElementById('pw-input').value.trim();
   if (!pw) return;
 
-  // Test with a real API call
-  const res = await fetch('/api/transfers', {
-    headers: { 'x-app-password': pw }
+  const res = await fetch('/api/auth', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pw }),
   });
 
-  if (res.status === 401) {
+  if (!res.ok) {
     document.getElementById('login-error').style.display = 'block';
     return;
   }
 
+  const { role, account } = await res.json();
   PASSWORD = pw;
+  ROLE = role;
+  USER_ACCOUNT = account;
+
+  applyRole();
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.add('visible');
   loadTransfers();
+}
+
+function applyRole() {
+  const isAdmin = ROLE === 'admin';
+  const isUser  = ROLE === 'user';
+
+  // "Vor Reset" Tab nur für Admin sichtbar
+  document.getElementById('tab-vor').style.display = isAdmin ? '' : 'none';
+
+  // Alles zurückgegeben Button: nur Admin
+  const retAllBtn = document.querySelector('#page-nach .btn-ok');
+  if (retAllBtn) retAllBtn.style.display = isAdmin ? '' : 'none';
+
+  // Status-Pill anpassen
+  const pill = document.getElementById('api-status');
+  if (isUser) {
+    pill.textContent = USER_ACCOUNT.toUpperCase();
+    pill.className = 'status-pill warn';
+  } else if (ROLE === 'view') {
+    pill.textContent = 'NUR ANSICHT';
+    pill.className = 'status-pill';
+  }
+
+  // Wenn kein Admin: direkt zum "Nach Reset" Tab
+  if (!isAdmin) setTab('nach');
 }
 
 // ── API Helper ─────────────────────────────────────────────────────────────
@@ -673,6 +713,7 @@ async function confirmTransfer() {
   if (!entries.length) return;
 
   const expedition_label = document.getElementById('expedition-label').value.trim() || 'aktuell';
+  const to_account = document.getElementById('to-account').value || 'consta';
 
   const items = entries.map(({ item, qty }) => ({
     id: item.id || item.item_id,
@@ -684,7 +725,7 @@ async function confirmTransfer() {
   }));
 
   try {
-    await api('POST', '/api/transfers', { expedition_label, items });
+    await api('POST', '/api/transfers', { expedition_label, to_account, items });
     selection = {};
     renderStash();
     renderSelection();
@@ -735,18 +776,28 @@ function renderTransfers() {
 
       return `<div class="transfer-row ${done ? 'done' : ''}">
         <div class="transfer-status ${statusClass}"></div>
+        ${t.icon_url
+          ? `<img class="item-icon" src="${t.icon_url}" alt="" onerror="this.style.display='none'">`
+          : `<div class="item-icon-placeholder">📦</div>`}
         <div class="item-info" style="flex:1;min-width:0;">
           <div class="item-name">${t.item_name || '?'}</div>
-          <div class="item-meta">${t.item_type || ''}</div>
+          <div class="item-meta">${t.from_account || 'silverbase'} → ${t.to_account || 'consta'}${t.item_type ? ' · ' + t.item_type : ''}</div>
         </div>
         <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);white-space:nowrap;margin-right:12px;">
           <span class="num">${returned}</span> / <span style="color:var(--warn)">${total}</span>
         </div>
         ${!done ? `
+        ${ROLE !== 'view' ? `
+        <select id="ret-from-${t.id}" onclick="event.stopPropagation()"
+          style="background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:11px;padding:3px 6px;outline:none;max-width:80px;">
+          <option value="consta" ${(t.to_account||'consta')==='consta' ? 'selected' : ''}>consta</option>
+          <option value="junez" ${(t.to_account||'consta')==='junez' ? 'selected' : ''}>junez</option>
+        </select>
         <input class="qty-input" type="number" min="1" max="${total}" value="${total}"
           id="ret-qty-${t.id}" style="width:56px;" onclick="event.stopPropagation()">
         <button class="btn btn-ok btn-sm" onclick="returnItem(${t.id})">✓</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteTransfer(${t.id})">✕</button>
+        ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${t.id})">✕</button>` : ''}
+        ` : `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">⟳ ${total}</span>`}
         ` : `<span class="tag">DONE</span>`}
       </div>`;
     }).join('')}
@@ -803,13 +854,23 @@ async function loadHistory() {
     list.innerHTML = data.map(t => {
       const statusColor = t.status === 'done' ? 'var(--ok)' : (t.status === 'partial' ? 'var(--accent)' : 'var(--warn)');
       const date = new Date(t.created_at).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
+      const from = t.from_account || 'silverbase';
+      const to = t.to_account || 'consta';
       return `<div class="transfer-row">
         <div class="transfer-status ${t.status}" style="background:${statusColor}"></div>
+        ${t.icon_url
+          ? `<img class="item-icon" src="${t.icon_url}" alt="" onerror="this.style.display='none'">`
+          : `<div class="item-icon-placeholder">📦</div>`}
         <div class="item-info" style="flex:1;min-width:0;">
           <div class="item-name">${t.item_name}</div>
-          <div class="item-meta">${t.expedition_label} · ${date}</div>
+          <div class="item-meta">
+            <span style="color:var(--accent);">${from}</span>
+            <span style="color:var(--text-muted)"> → </span>
+            <span style="color:var(--warn);">${to}</span>
+            <span style="color:var(--text-muted)"> · ${t.expedition_label} · ${date}</span>
+          </div>
         </div>
-        <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);">
+        <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);white-space:nowrap;">
           <span class="num">${t.quantity_returned || 0}</span>/<span>${t.quantity_transferred}</span>
         </div>
         <span class="tag" style="color:${statusColor};border-color:${statusColor};">${t.status.toUpperCase()}</span>
