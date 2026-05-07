@@ -155,7 +155,7 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
 
   if (!items?.length) return res.status(400).json({ error: 'Keine Items angegeben' });
 
-  const validToAccounts = ['consta', 'junez', 'pool'];
+  const validToAccounts = ['consta', 'junez', 'silverbase'];
 
   try {
     const inserted = [];
@@ -163,7 +163,7 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
       // Per-Item to_account hat Vorrang vor Body-Level to_account
       const target = validToAccounts.includes(item.to_account)
         ? item.to_account
-        : validToAccounts.includes(to_account) ? to_account : 'pool';
+        : validToAccounts.includes(to_account) ? to_account : 'silverbase';
 
       const { rows } = await pool.query(
         `INSERT INTO transfers

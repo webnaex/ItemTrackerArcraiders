@@ -754,7 +754,7 @@ async function confirmTransfer() {
   }));
 
   try {
-    await api('POST', '/api/transfers', { expedition_label, to_account: 'pool', items });
+    await api('POST', '/api/transfers', { expedition_label, to_account: 'silverbase', items });
     selection = {};
     renderStash();
     renderSelection();
@@ -960,11 +960,11 @@ async function deleteUserPassword(account) {
 
 // ── EMPFÄNGER Spalte ──────────────────────────────────────────────────────
 function renderEmpfaenger(t) {
-  const isPool = !t.to_account || t.to_account === 'pool' || t.to_account === 'unassigned';
+  const isPool = !t.to_account || t.to_account === 'silverbase' || t.to_account === 'unassigned';
   const total = t.quantity_transferred;
   const name  = (t.item_name || '').replace(/'/g, "\'");
   if (isPool) {
-    return `<button onclick="openAssignPopup(${t.id},'${name}',${total},'pool')"
+    return `<button onclick="openAssignPopup(${t.id},'${name}',${total},'silverbase')"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
              padding:4px 10px;background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0;">
       + Zuteilen</button>`;
