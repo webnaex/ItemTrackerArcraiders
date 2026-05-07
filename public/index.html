@@ -339,6 +339,21 @@
   #toast.err { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
   #toast.info { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 
+  /* ── Notiz-Input ── */
+  .note-input {
+    background: transparent; border: none; border-bottom: 1px solid transparent;
+    color: var(--text-dim); font-family: var(--mono); font-size: 11px;
+    padding: 3px 6px; outline: none; min-width: 140px; max-width: 260px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .note-input::placeholder { color: var(--text-muted); opacity: 1; }
+  .note-input:hover { border-bottom-color: var(--border2); }
+  .note-input:focus {
+    background: var(--bg3); border-bottom-color: var(--accent2);
+    color: var(--text);
+  }
+  .note-input.saved { border-bottom-color: var(--ok); }
+
   /* ── Section divider ── */
   .section-label {
     padding: 6px 18px; font-family: var(--mono); font-size: 10px;
@@ -718,6 +733,8 @@ const T = {
     'api.loading': 'LÄDT …',
     'api.ok':      'API OK',
     'return.ok':   'Zurückgegeben ✓',
+    'note.placeholder': 'Notiz …',
+    'note.saved': 'Notiz gespeichert',
     'delete.ok':   'Gelöscht',
     'confirm.delete': 'Transfer wirklich löschen?',
     'confirm.return': 'Item als zurückgegeben markieren?',
@@ -795,6 +812,8 @@ const T = {
     'api.loading': 'LOADING …',
     'api.ok':      'API OK',
     'return.ok':   'Returned ✓',
+    'note.placeholder': 'Note …',
+    'note.saved': 'Note saved',
     'delete.ok':   'Deleted',
     'confirm.delete': 'Really delete this transfer?',
     'confirm.return': 'Mark item as returned?',
@@ -1157,6 +1176,13 @@ function renderTransfers() {
           <div class="item-name">${t.item_name || '?'}</div>
           <div class="item-meta">${t.from_account || 'silverbase'}${t.item_type ? ' · ' + t.item_type : ''}</div>
         </div>
+        <input class="note-input" id="note-${t.id}"
+          value="${(t.notes || '').replace(/"/g, '&quot;')}"
+          placeholder="${window._t('note.placeholder')}"
+          ${ROLE === 'view' ? 'readonly' : ''}
+          onblur="saveNote(${t.id}, this.value)"
+          onkeydown="if(event.key==='Enter'){this.blur();}"
+          onclick="event.stopPropagation()">
         ${ROLE === 'admin' && !done ? renderEmpfaenger(t) : ''}
         <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);white-space:nowrap;margin-right:12px;">
           <span class="num">${returned}</span> / <span style="color:var(--warn)">${total}</span>
@@ -1280,6 +1306,20 @@ async function loadHistory() {
 }
 
 // ── Admin: Benutzer-Verwaltung ────────────────────────────────────────────────
+// ── Notiz speichern ───────────────────────────────────────────────────────
+async function saveNote(id, notes) {
+  try {
+    await api('PATCH', `/api/transfers/${id}/notes`, { notes });
+    const el = document.getElementById('note-' + id);
+    if (el) {
+      el.classList.add('saved');
+      setTimeout(() => el.classList.remove('saved'), 1500);
+    }
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
 // ── Backup / Snapshot ─────────────────────────────────────────────────────
 async function loadBackups() {
   const list = document.getElementById('backup-list');
