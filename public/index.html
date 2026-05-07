@@ -419,9 +419,9 @@
   <div class="login-box">
     <h1>TransferTracker</h1>
     <div class="subtitle">// ARC RAIDERS · ITEM LOGISTICS</div>
-    <input type="password" id="pw-input" placeholder="Passwort eingeben …" autocomplete="current-password">
-    <button class="btn-primary" onclick="doLogin()">ZUGANG ANFORDERN</button>
-    <div class="login-error" id="login-error">Falsches Passwort.</div>
+    <input type="password" id="pw-input" placeholder="Passwort eingeben …" data-i18n-ph="login.placeholder" autocomplete="current-password">
+    <button class="btn-primary" onclick="doLogin()" data-i18n="login.btn">ZUGANG ANFORDERN</button>
+    <div class="login-error" id="login-error" data-i18n="login.error">Falsches Passwort.</div>
   </div>
 </div>
 
@@ -432,19 +432,15 @@
   <div class="header">
     <div class="header-logo">Transfer<span>Tracker</span></div>
     <div class="header-tabs">
-      <button class="tab active" onclick="setTab('vor')" id="tab-vor">
-        Vor Reset
-      </button>
-      <button class="tab" onclick="setTab('nach')" id="tab-nach">
-        Lager
-        <span class="badge" id="badge-nach" style="margin-left:8px">0</span>
-      </button>
-      <button class="tab" onclick="setTab('history')" id="tab-history">History</button>
-      <button class="tab" onclick="setTab('admin')" id="tab-admin" style="display:none;margin-left:auto;opacity:0.7;font-size:12px;">⚙ Admin</button>
+      <button class="tab active" onclick="setTab('vor')" id="tab-vor"><span data-i18n="nav.vor_reset">Vor Reset</span></button>
+      <button class="tab" onclick="setTab('nach')" id="tab-nach"><span data-i18n="nav.lager">Lager</span><span class="badge" id="badge-nach" style="margin-left:8px">0</span></button>
+      <button class="tab" onclick="setTab('history')" id="tab-history"><span data-i18n="nav.history">History</span></button>
+      <button class="tab" onclick="setTab('admin')" id="tab-admin" style="display:none;margin-left:auto;opacity:0.7;font-size:12px;"><span data-i18n="nav.admin">⚙ Admin</span></button>
     </div>
     <div class="header-right">
       <span class="status-pill ok" id="api-status">API BEREIT</span>
-      <button class="btn btn-outline btn-sm" onclick="doLogout()" id="btn-logout" style="display:none;">⏻ Logout</button>
+      <button class="btn btn-outline btn-sm" onclick="toggleLang()" id="btn-lang" style="font-family:var(--mono);font-size:11px;padding:5px 10px;letter-spacing:0.1em;">EN</button>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()" id="btn-logout" style="display:none;" data-i18n="logout">⏻ Logout</button>
     </div>
   </div>
 
@@ -459,13 +455,13 @@
         <div class="panel-header">
           <div class="panel-title">Silverbase Stash</div>
           <div class="panel-subtitle" id="stash-meta">— items</div>
-          <button class="btn btn-outline btn-sm" onclick="loadStash()">↻ Stash laden</button>
+          <button class="btn btn-outline btn-sm" onclick="loadStash()" data-i18n="stash.load_btn">↻ Stash laden</button>
         </div>
         <div class="toolbar">
-          <input type="text" id="stash-search" placeholder="Item suchen …" oninput="filterStash()">
+          <input type="text" id="stash-search" placeholder="Item suchen …" data-i18n-ph="stash.search" oninput="filterStash()">
           <select id="stash-type-filter" onchange="filterStash()"
             style="background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;">
-            <option value="">Alle Typen</option>
+            <option value="" data-i18n="stash.all_types">Alle Typen</option>
           </select>
         </div>
         <div class="panel-body" id="stash-list">
@@ -484,12 +480,10 @@
         </div>
         <div class="selection-footer">
           <div class="expedition-row">
-            <label>EXPEDITION</label>
+            <label data-i18n="transfer.expedition">EXPEDITION</label>
             <input type="text" id="expedition-label" value="Season 1" placeholder="z.B. Season 1">
           </div>
-          <button class="btn btn-accent" onclick="confirmTransfer()" id="btn-confirm" disabled>
-            Transfer bestätigen
-          </button>
+          <button class="btn btn-accent" onclick="confirmTransfer()" id="btn-confirm" disabled data-i18n="transfer.confirm">Transfer bestätigen</button>
         </div>
         <div class="panel-body" id="selection-list">
           <div class="empty-state" style="padding:40px 16px;">
@@ -503,9 +497,7 @@
     <!-- ════ NACH RESET ════ -->
     <div class="page" id="page-nach" style="flex-direction:column;gap:16px;">
       <div class="top-bar">
-        <div class="panel-title" style="font-family:var(--head);font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">
-          Offene Transfers
-        </div>
+        <div class="panel-title" style="font-family:var(--head);font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;" data-i18n="lager.title">Offene Transfers</div>
         <button class="btn btn-outline btn-sm" onclick="loadTransfers()" style="margin-left:auto;">↻</button>
       </div>
       <div class="panel" style="flex:1;">
@@ -523,12 +515,12 @@
       <div class="panel" style="flex:1;">
         <div class="panel-header">
           <div class="panel-title">Transfer History</div>
-          <button class="btn btn-outline btn-sm" onclick="loadHistory()" style="margin-left:auto;">↻ Laden</button>
+          <button class="btn btn-outline btn-sm" onclick="loadHistory()" style="margin-left:auto;" data-i18n="history.load_btn">↻ Laden</button>
         </div>
         <div class="panel-body" id="history-list">
           <div class="empty-state">
             <div class="icon">📋</div>
-            Klick auf "Laden" um die History anzuzeigen.
+            <span data-i18n="history.empty">Klick auf "Laden" um die History anzuzeigen.</span>
           </div>
         </div>
       </div>
@@ -538,7 +530,7 @@
     <div class="page" id="page-admin" style="flex-direction:column;gap:16px;">
       <div class="panel">
         <div class="panel-header">
-          <div class="panel-title">⚙ Benutzer-Verwaltung</div>
+          <div class="panel-title" data-i18n="admin.title">⚙ Benutzer-Verwaltung</div>
           <button class="btn btn-outline btn-sm" onclick="loadAdminUsers()" style="margin-left:auto;">↻</button>
         </div>
         <div class="panel-body" id="admin-users-list">
@@ -562,8 +554,8 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
       <div id="assign-total" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">Zugeteilt: 0 / 0</div>
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-outline btn-sm" onclick="closeAssignPopup()">Abbrechen</button>
-        <button class="btn btn-accent btn-sm" onclick="confirmAssign()">Zuteilen</button>
+        <button class="btn btn-outline btn-sm" onclick="closeAssignPopup()" data-i18n="assign.cancel">Abbrechen</button>
+        <button class="btn btn-accent btn-sm" onclick="confirmAssign()" data-i18n="assign.confirm">Zuteilen</button>
       </div>
     </div>
   </div>
@@ -573,6 +565,166 @@
 <div id="toast"></div>
 
 <script>
+// ── i18n ───────────────────────────────────────────────────────────────────
+let LANG = localStorage.getItem('lang') || 'de';
+
+const T = {
+  de: {
+    // Login
+    'login.placeholder': 'Passwort eingeben …',
+    'login.btn':         'ZUGANG ANFORDERN',
+    'login.error':       'Falsches Passwort.',
+    // Tabs
+    'nav.vor_reset': 'Vor Reset',
+    'nav.lager':     'Lager',
+    'nav.history':   'History',
+    'nav.admin':     '⚙ Admin',
+    'logout':        '⏻ Logout',
+    // Stash
+    'stash.load_btn':  '↻ Stash laden',
+    'stash.search':    'Item suchen …',
+    'stash.all_types': 'Alle Typen',
+    'stash.loading':   'Silverbase Stash wird geladen …',
+    'stash.empty':     'Klick auf "Stash laden" um den Silverbase Stash abzurufen.',
+    'stash.items':     'Items',
+    // Transfer
+    'transfer.expedition': 'EXPEDITION',
+    'transfer.confirm':    'Transfer bestätigen',
+    'transfer.empty':      'Items aus dem Stash auswählen.',
+    'transfer.ok':         'Items transferiert ✓',
+    // Lager
+    'lager.title':   'Offene Transfers',
+    'lager.empty':   'Keine offenen Transfers.',
+    'lager.zuteilen':'+ Zuteilen',
+    // Assign Popup
+    'assign.subtitle': 'SILVERBASE',
+    'assign.total':    'Zugeteilt',
+    'assign.cancel':   'Abbrechen',
+    'assign.confirm':  'Zuteilen',
+    'assign.warn':     'Bitte alle {n} Einheiten zuteilen',
+    'assign.ok':       'Zuteilung gespeichert ✓',
+    // History
+    'history.load_btn': '↻ Laden',
+    'history.loading':  'Lädt …',
+    'history.empty':    'Klick auf "Laden" um die History anzuzeigen.',
+    // Admin
+    'admin.title':    '⚙ Benutzer-Verwaltung',
+    'admin.loading':  'Lädt …',
+    'admin.set':      'Setzen',
+    'admin.active':   '✓ Aktiv',
+    'admin.inactive': '— Inaktiv',
+    'admin.set_ph':   '●●●●● (gesetzt)',
+    'admin.no_pw':    'Kein Passwort',
+    'admin.pw_set':   '✓ Passwort gesetzt',
+    'admin.pw_del':   'Passwort gelöscht',
+    'admin.confirm_del': 'Passwort für {a} löschen? Der Account kann sich dann nicht mehr einloggen.',
+    // Status
+    'status.pending': 'PENDING',
+    'status.partial': 'PARTIAL',
+    'status.done':    'DONE',
+    // Misc
+    'api.ready':   'API BEREIT',
+    'api.loading': 'LÄDT …',
+    'api.ok':      'API OK',
+    'return.ok':   'Zurückgegeben ✓',
+    'delete.ok':   'Gelöscht',
+  },
+  en: {
+    // Login
+    'login.placeholder': 'Enter password …',
+    'login.btn':         'REQUEST ACCESS',
+    'login.error':       'Wrong password.',
+    // Tabs
+    'nav.vor_reset': 'Pre-Reset',
+    'nav.lager':     'Storage',
+    'nav.history':   'History',
+    'nav.admin':     '⚙ Admin',
+    'logout':        '⏻ Logout',
+    // Stash
+    'stash.load_btn':  '↻ Load Stash',
+    'stash.search':    'Search items …',
+    'stash.all_types': 'All Types',
+    'stash.loading':   'Loading Silverbase stash …',
+    'stash.empty':     'Click "Load Stash" to fetch the Silverbase stash.',
+    'stash.items':     'Items',
+    // Transfer
+    'transfer.expedition': 'EXPEDITION',
+    'transfer.confirm':    'Confirm Transfer',
+    'transfer.empty':      'Select items from stash.',
+    'transfer.ok':         'Items transferred ✓',
+    // Lager
+    'lager.title':    'Open Transfers',
+    'lager.empty':    'No open transfers.',
+    'lager.zuteilen': '+ Assign',
+    // Assign Popup
+    'assign.subtitle': 'SILVERBASE',
+    'assign.total':    'Assigned',
+    'assign.cancel':   'Cancel',
+    'assign.confirm':  'Assign',
+    'assign.warn':     'Please assign all {n} units',
+    'assign.ok':       'Assignment saved ✓',
+    // History
+    'history.load_btn': '↻ Load',
+    'history.loading':  'Loading …',
+    'history.empty':    'Click "Load" to show history.',
+    // Admin
+    'admin.title':    '⚙ User Management',
+    'admin.loading':  'Loading …',
+    'admin.set':      'Set',
+    'admin.active':   '✓ Active',
+    'admin.inactive': '— Inactive',
+    'admin.set_ph':   '●●●●● (set)',
+    'admin.no_pw':    'No password',
+    'admin.pw_set':   '✓ Password set',
+    'admin.pw_del':   'Password deleted',
+    'admin.confirm_del': 'Delete password for {a}? The account will no longer be able to log in.',
+    // Status
+    'status.pending': 'PENDING',
+    'status.partial': 'PARTIAL',
+    'status.done':    'DONE',
+    // Misc
+    'api.ready':   'API READY',
+    'api.loading': 'LOADING …',
+    'api.ok':      'API OK',
+    'return.ok':   'Returned ✓',
+    'delete.ok':   'Deleted',
+  }
+};
+
+function t(key, vars = {}) {
+  let str = (T[LANG] || T.de)[key] || (T.de)[key] || key;
+  Object.entries(vars).forEach(([k, v]) => { str = str.replace('{' + k + '}', v); });
+  return str;
+}
+
+window._t = t; // Alias für Template-Literals wo 't' als Variable belegt ist
+
+function toggleLang() {
+  LANG = LANG === 'de' ? 'en' : 'de';
+  localStorage.setItem('lang', LANG);
+  document.getElementById('btn-lang').textContent = LANG === 'de' ? 'EN' : 'DE';
+  applyLang();
+}
+
+function applyLang() {
+  // data-i18n Elemente
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  // Placeholders
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  // API-Status Pill (nur wenn noch nicht angemeldet oder BEREIT)
+  const pill = document.getElementById('api-status');
+  if (pill && (pill.textContent.includes('BEREIT') || pill.textContent.includes('READY'))) {
+    pill.textContent = t('api.ready');
+  }
+  // Dynamische Inhalte neu rendern
+  renderSelection();
+  if (document.getElementById('transfers-list')) renderTransfers();
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let PASSWORD = '';
 let ROLE = '';        // 'admin' | 'view' | 'user'
@@ -608,6 +760,8 @@ async function doLogin() {
   USER_ACCOUNT = account;
 
   applyRole();
+  document.getElementById('btn-lang').textContent = LANG === 'de' ? 'EN' : 'DE';
+  applyLang();
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.add('visible');
   loadTransfers();
@@ -678,21 +832,21 @@ function setTab(tab) {
 // ── Stash ──────────────────────────────────────────────────────────────────
 async function loadStash() {
   const list = document.getElementById('stash-list');
-  list.innerHTML = `<div class="loading-row"><div class="spinner"></div>Silverbase Stash wird geladen …</div>`;
-  document.getElementById('api-status').textContent = 'LÄDT …';
+  list.innerHTML = `<div class="loading-row"><div class="spinner"></div>${t('stash.loading')}</div>`;
+  document.getElementById('api-status').textContent = t('api.loading');
   document.getElementById('api-status').className = 'status-pill warn';
 
   try {
     const data = await api('GET', '/api/stash/silverbase');
     stashItems = data.items || [];
-    document.getElementById('stash-meta').textContent = `${stashItems.length} Items`;
-    document.getElementById('api-status').textContent = 'API OK';
+    document.getElementById('stash-meta').textContent = `${stashItems.length} ${t('stash.items')}`;
+    document.getElementById('api-status').textContent = t('api.ok');
     document.getElementById('api-status').className = 'status-pill ok';
 
     // Build type filter
     const types = [...new Set(stashItems.map(i => i.type || i.item_type || ''))].filter(Boolean).sort();
     const sel = document.getElementById('stash-type-filter');
-    sel.innerHTML = '<option value="">Alle Typen</option>';
+    sel.innerHTML = '<option value="" data-i18n="stash.all_types">Alle Typen</option>';
     types.forEach(t => sel.innerHTML += `<option value="${t}">${t}</option>`);
 
     filteredItems = [...stashItems];
@@ -769,7 +923,7 @@ function renderSelection() {
   document.getElementById('btn-confirm').disabled = entries.length === 0;
 
   if (!entries.length) {
-    list.innerHTML = `<div class="empty-state" style="padding:40px 16px;"><div class="icon">🎯</div>Items auswählen.</div>`;
+    list.innerHTML = `<div class="empty-state" style="padding:40px 16px;"><div class="icon">🎯</div>${t('transfer.empty')}</div>`;
     return;
   }
 
@@ -822,7 +976,7 @@ async function confirmTransfer() {
     selection = {};
     renderStash();
     renderSelection();
-    toast(`${items.length} Items transferiert ✓`, 'ok');
+    toast(`${items.length} ${t('transfer.ok')}`, 'ok');
     loadTransfers(); // Badge aktualisieren
   } catch (err) {
     toast(err.message, 'err');
@@ -847,7 +1001,7 @@ async function loadTransfers() {
 function renderTransfers() {
   const list = document.getElementById('transfers-list');
   if (!activeTransfers.length) {
-    list.innerHTML = `<div class="empty-state"><div class="icon">✅</div>Keine offenen Transfers.</div>`;
+    list.innerHTML = `<div class="empty-state"><div class="icon">✅</div>${t('lager.empty')}</div>`;
     return;
   }
 
@@ -887,7 +1041,7 @@ function renderTransfers() {
         <button class="btn btn-ok btn-sm" onclick="returnItem(${t.id})">✓</button>
         ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${t.id})">✕</button>` : ''}
         ` : `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">⟳ ${total}</span>`}
-        ` : `<span class="tag">DONE</span>`}
+        ` : `<span class="tag">${t("status.done")}</span>`}
       </div>`;
     }).join('')}
   `).join('');
@@ -901,7 +1055,7 @@ async function returnItem(id) {
   try {
     await api('PATCH', `/api/transfers/${id}/return`, { quantity });
     await loadTransfers();
-    toast('Zurückgegeben ✓', 'ok');
+    toast(t('return.ok'), 'ok');
   } catch (err) {
     toast(err.message, 'err');
   }
@@ -922,7 +1076,7 @@ async function deleteTransfer(id) {
   try {
     await api('DELETE', `/api/transfers/${id}`);
     await loadTransfers();
-    toast('Gelöscht', 'info');
+    toast(t('delete.ok'), 'info');
   } catch (err) {
     toast(err.message, 'err');
   }
@@ -973,22 +1127,22 @@ async function loadHistory() {
 // ── Admin: Benutzer-Verwaltung ────────────────────────────────────────────────
 async function loadAdminUsers() {
   const list = document.getElementById('admin-users-list');
-  list.innerHTML = '<div class="loading-row"><div class="spinner"></div>Lädt…</div>';
+  list.innerHTML = `<div class="loading-row"><div class="spinner"></div>${t('admin.loading')}</div>`;
   try {
     const users = await api('GET', '/api/admin/users');
-    const labels = { view: 'Nur-Ansicht (arc)', consta: 'Consta', junez: 'Junez' };
+    const labels = { view: LANG==='de'?'Nur-Ansicht (arc)':'View Only (arc)', consta: 'Consta', junez: 'Junez' };
     list.innerHTML = users.map(u => `
       <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);">
         <div style="width:120px;font-family:var(--mono);color:var(--accent);font-size:13px;">${labels[u.account] || u.account}</div>
         <div style="flex:1;display:flex;gap:8px;align-items:center;">
-          <input type="password" id="pw-${u.account}" placeholder="${u.hasPassword ? '●●●●● (gesetzt)' : 'Kein Passwort'}"
+          <input type="password" id="pw-${u.account}" placeholder="${u.hasPassword ? t('admin.set_ph') : t('admin.no_pw')}"
             style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:13px;"
             onkeydown="if(event.key==='Enter') setUserPassword('${u.account}')">
-          <button class="btn btn-sm btn-primary" onclick="setUserPassword('${u.account}')">Setzen</button>
+          <button class="btn btn-sm btn-primary" onclick="setUserPassword('${u.account}')">${t('admin.set')}</button>
           ${u.hasPassword ? `<button class="btn btn-sm btn-danger" onclick="deleteUserPassword('${u.account}')">✕</button>` : ''}
         </div>
         <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
-          ${u.hasPassword ? '✓ Aktiv' : '— Inaktiv'}
+          ${u.hasPassword ? t('admin.active') : t('admin.inactive')}
         </div>
       </div>
     `).join('');
@@ -1003,7 +1157,7 @@ async function setUserPassword(account) {
   if (!password) { toast('Bitte Passwort eingeben', 'warn'); return; }
   try {
     await api('PUT', '/api/admin/users/' + account + '/password', { password });
-    toast('✓ Passwort für ' + account + ' gesetzt', 'ok');
+    toast(t('admin.pw_set') + ' (' + account + ')', 'ok');
     input.value = '';
     loadAdminUsers();
   } catch (err) {
@@ -1012,10 +1166,10 @@ async function setUserPassword(account) {
 }
 
 async function deleteUserPassword(account) {
-  if (!confirm('Passwort für ' + account + ' löschen? Der Account kann sich dann nicht mehr einloggen.')) return;
+  if (!confirm(t('admin.confirm_del', {a: account}))) return;
   try {
     await api('DELETE', '/api/admin/users/' + account + '/password');
-    toast('Passwort für ' + account + ' gelöscht', 'warn');
+    toast(t('admin.pw_del') + ' (' + account + ')', 'warn');
     loadAdminUsers();
   } catch (err) {
     toast(err.message, 'error');
@@ -1031,7 +1185,7 @@ function renderEmpfaenger(t) {
     return `<button onclick="openAssignPopup(${t.id},'${name}',${total},'silverbase')"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
              padding:4px 10px;background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-      + Zuteilen</button>`;
+      ${t('lager.zuteilen')}</button>`;
   }
   const color = t.to_account === 'consta' ? 'var(--accent)' : 'var(--warn)';
   return `<div onclick="openAssignPopup(${t.id},'${name}',${total},'${t.to_account}')" style="cursor:pointer;flex-shrink:0;">
@@ -1056,7 +1210,7 @@ function openAssignPopup(id, itemName, total, currentAcct) {
   else if (currentAcct === 'junez') assignQtys.junez = total;
 
   document.getElementById('assign-title').textContent = itemName;
-  document.getElementById('assign-subtitle').textContent = `SILVERBASE: ${total}`;
+  document.getElementById('assign-subtitle').textContent = `${t('assign.subtitle')}: ${total}`;
   renderAssignUsers();
   updateAssignTotal();
   const ov = document.getElementById('assign-overlay');
@@ -1091,7 +1245,7 @@ function updateAssignTotal() {
   const assigned = Object.values(assignQtys).reduce((a,b) => a+b, 0);
   const el = document.getElementById('assign-total');
   if (el) {
-    el.textContent = `Zugeteilt: ${assigned} / ${assignPopupTotal}`;
+    el.textContent = `${t('assign.total')}: ${assigned} / ${assignPopupTotal}`;
     el.style.color  = assigned === assignPopupTotal ? 'var(--ok)' : 'var(--warn)';
   }
 }
@@ -1104,13 +1258,13 @@ function closeAssignPopup() {
 async function confirmAssign() {
   const assigned = Object.values(assignQtys).reduce((a,b) => a+b, 0);
   if (assigned !== assignPopupTotal) {
-    toast(`Bitte alle ${assignPopupTotal} Einheiten zuteilen`, 'warn'); return;
+    toast(t('assign.warn', {n: assignPopupTotal}), 'warn'); return;
   }
   try {
     await api('POST', `/api/transfers/${assignPopupId}/assign`, { assignments: assignQtys });
     closeAssignPopup();
     await loadTransfers();
-    toast('Zuteilung gespeichert ✓', 'ok');
+    toast(t('assign.ok'), 'ok');
   } catch (err) {
     toast(err.message, 'err');
   }
