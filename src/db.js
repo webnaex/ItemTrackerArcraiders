@@ -32,6 +32,12 @@ export async function initDB() {
       snapshot_data JSONB NOT NULL,
       taken_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS user_passwords (
+      account TEXT PRIMARY KEY,
+      password TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
   console.log('✅ DB initialisiert');
 }

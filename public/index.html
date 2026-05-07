@@ -384,6 +384,7 @@
         <span class="badge" id="badge-nach" style="margin-left:8px">0</span>
       </button>
       <button class="tab" onclick="setTab('history')" id="tab-history">History</button>
+      <button class="tab" onclick="setTab('admin')" id="tab-admin" style="display:none;margin-left:auto;opacity:0.7;font-size:12px;">⚙ Admin</button>
     </div>
     <div class="header-right">
       <span class="status-pill ok" id="api-status">API BEREIT</span>
@@ -486,6 +487,19 @@
       </div>
     </div>
 
+  <!-- ════ ADMIN ════ -->
+    <div class="page" id="page-admin" style="flex-direction:column;gap:16px;">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">⚙ Benutzer-Verwaltung</div>
+          <button class="btn btn-outline btn-sm" onclick="loadAdminUsers()" style="margin-left:auto;">↻</button>
+        </div>
+        <div class="panel-body" id="admin-users-list">
+          <div class="empty-state"><div class="icon">⚙</div>Wird geladen…</div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main -->
 </div><!-- /app -->
 
@@ -539,6 +553,8 @@ function applyRole() {
 
   // "Vor Reset" Tab nur für Admin sichtbar
   document.getElementById('tab-vor').style.display = isAdmin ? '' : 'none';
+  // "Admin" Tab nur für Superadmin
+  document.getElementById('tab-admin').style.display = isAdmin ? '' : 'none';
 
   // Alles zurückgegeben Button: nur Admin
   const retAllBtn = document.querySelector('#page-nach .btn-ok');
@@ -580,6 +596,7 @@ function setTab(tab) {
 
   if (tab === 'nach') loadTransfers();
   if (tab === 'history') loadHistory();
+  if (tab === 'admin') loadAdminUsers();
 }
 
 // ── Stash ──────────────────────────────────────────────────────────────────
@@ -878,6 +895,58 @@ async function loadHistory() {
     }).join('');
   } catch (err) {
     list.innerHTML = `<div class="empty-state" style="color:var(--danger)">${err.message}</div>`;
+  }
+}
+
+// ── Admin: Benutzer-Verwaltung ────────────────────────────────────────────────
+async function loadAdminUsers() {
+  const list = document.getElementById('admin-users-list');
+  list.innerHTML = '<div class="loading-row"><div class="spinner"></div>Lädt…</div>';
+  try {
+    const users = await api('GET', '/api/admin/users');
+    const labels = { view: 'Nur-Ansicht (arc)', consta: 'Consta', junez: 'Junez' };
+    list.innerHTML = users.map(u => `
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);">
+        <div style="width:120px;font-family:var(--mono);color:var(--accent);font-size:13px;">${labels[u.account] || u.account}</div>
+        <div style="flex:1;display:flex;gap:8px;align-items:center;">
+          <input type="password" id="pw-${u.account}" placeholder="${u.hasPassword ? '●●●●● (gesetzt)' : 'Kein Passwort'}"
+            style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:13px;"
+            onkeydown="if(event.key==='Enter') setUserPassword('${u.account}')">
+          <button class="btn btn-sm btn-primary" onclick="setUserPassword('${u.account}')">Setzen</button>
+          ${u.hasPassword ? `<button class="btn btn-sm btn-danger" onclick="deleteUserPassword('${u.account}')">✕</button>` : ''}
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
+          ${u.hasPassword ? '✓ Aktiv' : '— Inaktiv'}
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state" style="color:var(--danger)">${err.message}</div>`;
+  }
+}
+
+async function setUserPassword(account) {
+  const input = document.getElementById('pw-' + account);
+  const password = input.value.trim();
+  if (!password) { toast('Bitte Passwort eingeben', 'warn'); return; }
+  try {
+    await api('PUT', '/api/admin/users/' + account + '/password', { password });
+    toast('✓ Passwort für ' + account + ' gesetzt', 'ok');
+    input.value = '';
+    loadAdminUsers();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function deleteUserPassword(account) {
+  if (!confirm('Passwort für ' + account + ' löschen? Der Account kann sich dann nicht mehr einloggen.')) return;
+  try {
+    await api('DELETE', '/api/admin/users/' + account + '/password');
+    toast('Passwort für ' + account + ' gelöscht', 'warn');
+    loadAdminUsers();
+  } catch (err) {
+    toast(err.message, 'error');
   }
 }
 

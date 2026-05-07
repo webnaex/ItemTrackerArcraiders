@@ -10,28 +10,46 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// ─── User-Tabelle ─────────────────────────────────────────────────────────────
-function getUsers() {
-  return {
-    [process.env.APP_PASSWORD || 'arcraiders']:   { role: 'admin',  account: null },
-    [process.env.PASSWORD_VIEW  || 'arc']:         { role: 'view',   account: null },
-    ...(process.env.PASSWORD_CONSTA ? { [process.env.PASSWORD_CONSTA]: { role: 'user', account: 'consta' } } : {}),
-    ...(process.env.PASSWORD_JUNEZ  ? { [process.env.PASSWORD_JUNEZ]:  { role: 'user', account: 'junez'  } } : {}),
+// ─── User-Tabelle (Env + DB) ──────────────────────────────────────────────────
+async function getAllUsers() {
+  // Superadmin kommt immer aus Env
+  const users = {
+    [process.env.APP_PASSWORD || 'arcraiders']: { role: 'admin', account: null },
   };
+  // Env-Fallbacks (falls noch keine DB-Einträge vorhanden)
+  if (process.env.PASSWORD_VIEW)   users[process.env.PASSWORD_VIEW]   = { role: 'view', account: null };
+  if (process.env.PASSWORD_CONSTA) users[process.env.PASSWORD_CONSTA] = { role: 'user', account: 'consta' };
+  if (process.env.PASSWORD_JUNEZ)  users[process.env.PASSWORD_JUNEZ]  = { role: 'user', account: 'junez' };
+
+  // DB-Passwörter überschreiben Env-Werte
+  try {
+    const { rows } = await pool.query('SELECT account, password FROM user_passwords');
+    for (const row of rows) {
+      if (row.account === 'view') {
+        users[row.password] = { role: 'view', account: null };
+      } else {
+        users[row.password] = { role: 'user', account: row.account };
+      }
+    }
+  } catch (_) {}
+
+  return users;
 }
 
 // ─── Auth Endpoint (vor Middleware!) ──────────────────────────────────────────
-app.post('/api/auth', (req, res) => {
+app.post('/api/auth', async (req, res) => {
   const { password } = req.body;
-  const user = getUsers()[password];
+  const users = await getAllUsers();
+  const user = users[password];
   if (!user) return res.status(401).json({ error: 'Falsches Passwort' });
   res.json(user);
 });
 
 // ─── Auth Middleware ───────────────────────────────────────────────────────────
-app.use('/api', (req, res, next) => {
+app.use('/api', async (req, res, next) => {
   const pw = req.headers['x-app-password'];
-  const user = getUsers()[pw];
+  const users = await getAllUsers();
+  const user = users[pw];
   if (!user) return res.status(401).json({ error: 'Falsches Passwort' });
   req.user = user;
   next();
@@ -47,6 +65,55 @@ function notView(req, res, next) {
   if (req.user.role === 'view') return res.status(403).json({ error: 'Keine Schreibrechte' });
   next();
 }
+
+// ─── Admin: User-Passwörter verwalten ─────────────────────────────────────────
+const MANAGED_ACCOUNTS = ['view', 'consta', 'junez'];
+
+app.get('/api/admin/users', adminOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT account, updated_at FROM user_passwords WHERE account = ANY($1)',
+      [MANAGED_ACCOUNTS]
+    );
+    const result = MANAGED_ACCOUNTS.map(a => {
+      const found = rows.find(r => r.account === a);
+      return { account: a, hasPassword: !!found, updatedAt: found?.updated_at || null };
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/users/:account/password', adminOnly, async (req, res) => {
+  const { account } = req.params;
+  const { password } = req.body;
+  if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
+  if (!password || password.length < 3) return res.status(400).json({ error: 'Passwort zu kurz (min. 3 Zeichen)' });
+
+  try {
+    await pool.query(
+      `INSERT INTO user_passwords (account, password, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (account) DO UPDATE SET password = $2, updated_at = NOW()`,
+      [account, password]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/users/:account/password', adminOnly, async (req, res) => {
+  const { account } = req.params;
+  if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
+  try {
+    await pool.query('DELETE FROM user_passwords WHERE account = $1', [account]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ─── Stash laden (Admin only) ─────────────────────────────────────────────────
 app.get('/api/stash/:account', adminOnly, async (req, res) => {
@@ -127,7 +194,6 @@ app.get('/api/transfers', async (req, res) => {
   try {
     let rows;
     if (role === 'user') {
-      // User sieht nur seine eigenen Items
       ({ rows } = await pool.query(
         `SELECT * FROM transfers WHERE status != 'done' AND to_account = $1 ORDER BY created_at DESC`,
         [account]
@@ -171,7 +237,6 @@ app.patch('/api/transfers/:id/return', notView, async (req, res) => {
   const { role, account } = req.user;
 
   try {
-    // User darf nur seine eigenen Items zurückgeben
     if (role === 'user') {
       const check = await pool.query('SELECT to_account FROM transfers WHERE id = $1', [id]);
       if (!check.rows.length || check.rows[0].to_account !== account) {
