@@ -155,7 +155,7 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
 
   if (!items?.length) return res.status(400).json({ error: 'Keine Items angegeben' });
 
-  const validToAccounts = ['consta', 'junez'];
+  const validToAccounts = ['consta', 'junez', 'pool'];
 
   try {
     const inserted = [];
@@ -163,7 +163,7 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
       // Per-Item to_account hat Vorrang vor Body-Level to_account
       const target = validToAccounts.includes(item.to_account)
         ? item.to_account
-        : validToAccounts.includes(to_account) ? to_account : 'consta';
+        : validToAccounts.includes(to_account) ? to_account : 'pool';
 
       const { rows } = await pool.query(
         `INSERT INTO transfers
@@ -261,6 +261,57 @@ app.patch('/api/transfers/:id/return', notView, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Transfer nicht gefunden' });
     res.json(rows[0]);
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Transfer zuteilen / splitten (Admin only) ────────────────────────────────
+app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
+  const { id } = req.params;
+  const { assignments } = req.body; // { consta: 2, junez: 1 }
+
+  try {
+    const { rows } = await pool.query('SELECT * FROM transfers WHERE id = $1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Transfer nicht gefunden' });
+    const orig = rows[0];
+
+    const validAccounts = ['consta', 'junez'];
+    const entries = Object.entries(assignments)
+      .filter(([acct, qty]) => validAccounts.includes(acct) && parseInt(qty) > 0)
+      .map(([acct, qty]) => [acct, parseInt(qty)]);
+
+    const total = entries.reduce((s, [, q]) => s + q, 0);
+    if (total !== orig.quantity_transferred) {
+      return res.status(400).json({ error: `Summe (${total}) ≠ Menge (${orig.quantity_transferred})` });
+    }
+
+    if (entries.length === 1) {
+      // Nur Account ändern, kein Split
+      const [acct] = entries[0];
+      const { rows: updated } = await pool.query(
+        'UPDATE transfers SET to_account = $1 WHERE id = $2 RETURNING *',
+        [acct, id]
+      );
+      return res.json({ transfers: updated });
+    }
+
+    // Split: Original löschen, neue Transfers pro Account anlegen
+    await pool.query('DELETE FROM transfers WHERE id = $1', [id]);
+    const created = [];
+    for (const [acct, qty] of entries) {
+      const { rows: r } = await pool.query(
+        `INSERT INTO transfers
+          (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
+           quantity_transferred, from_account, to_account, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [orig.expedition_label, orig.item_id, orig.item_name, orig.item_name_en,
+         orig.item_type, orig.icon_url, qty, orig.from_account, acct, orig.created_at]
+      );
+      created.push(r[0]);
+    }
+    res.json({ transfers: created });
+  } catch (err) {
+    console.error('Assign Fehler:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

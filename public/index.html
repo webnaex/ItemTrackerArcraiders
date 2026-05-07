@@ -263,17 +263,6 @@
   }
   .remove-btn:hover { color: var(--danger); }
 
-  .acct-toggle { display:flex; gap:4px; margin-top:6px; }
-  .acct-btn {
-    flex:1; padding:4px 0; font-family:var(--mono); font-size:11px;
-    border:1px solid var(--border2); background:var(--bg3); color:var(--text-muted);
-    cursor:pointer; text-transform:uppercase; letter-spacing:0.05em;
-    transition:all 0.15s;
-  }
-  .acct-btn.active-consta { background:var(--accent-dim); border-color:var(--accent); color:var(--accent); }
-  .acct-btn.active-junez  { background:var(--warn-dim);   border-color:var(--warn);   color:var(--warn); }
-  .acct-btn:hover:not(.active-consta):not(.active-junez) { border-color:var(--border2); color:var(--text); }
-
   .selection-footer {
     padding: 16px 18px; border-top: 1px solid var(--border);
     display: flex; flex-direction: column; gap: 10px;
@@ -507,6 +496,25 @@
   </div><!-- /main -->
 </div><!-- /app -->
 
+<!-- Assign Popup Overlay -->
+<div id="assign-overlay" onclick="closeAssignPopup()"
+  style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.75);align-items:center;justify-content:center;">
+  <div onclick="event.stopPropagation()"
+    style="background:var(--bg2);border:1px solid var(--border2);padding:28px 32px;min-width:320px;max-width:400px;position:relative;">
+    <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);"></div>
+    <div id="assign-title" style="font-family:var(--head);font-size:17px;font-weight:900;color:var(--text);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;"></div>
+    <div id="assign-subtitle" style="font-family:var(--mono);font-size:11px;color:var(--warn);margin-bottom:20px;letter-spacing:0.05em;"></div>
+    <div id="assign-users"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);">
+      <div id="assign-total" style="font-family:var(--mono);font-size:12px;color:var(--text-muted);">Zugeteilt: 0 / 0</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="closeAssignPopup()">Abbrechen</button>
+        <button class="btn btn-accent btn-sm" onclick="confirmAssign()">Zuteilen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -682,7 +690,7 @@ function toggleItem(id) {
     delete selection[id];
   } else {
     const qty = item.quantity ?? item.qty ?? 1;
-    selection[id] = { item, qty, to_account: 'consta' };
+    selection[id] = { item, qty };
   }
   renderStash();
   renderSelection();
@@ -701,23 +709,18 @@ function renderSelection() {
     return;
   }
 
-  list.innerHTML = entries.map(({ item, qty, to_account }) => {
+  list.innerHTML = entries.map(({ item, qty }) => {
     const id = item.id || item.item_id;
     const name = item.name?.de || item.name?.en || item.name || 'Unbekannt';
     const max = item.quantity ?? item.qty ?? 999;
-    const acct = to_account || 'consta';
 
-    return `<div class="selection-item" style="flex-wrap:wrap;gap:4px;">
+    return `<div class="selection-item">
       <div class="item-info" style="flex:1;min-width:0;">
         <div class="item-name">${name}</div>
       </div>
       <input class="qty-input" type="number" min="1" max="${max}" value="${qty}"
         onchange="updateQty('${id}', this.value)" onclick="event.stopPropagation()">
       <button class="remove-btn" onclick="removeSelection('${id}')">×</button>
-      <div class="acct-toggle" style="width:100%;padding:0 2px;">
-        <button class="acct-btn ${acct==='consta'?'active-consta':''}" onclick="setSelectionAcct('${id}','consta')">Consta</button>
-        <button class="acct-btn ${acct==='junez'?'active-junez':''}"  onclick="setSelectionAcct('${id}','junez')">Junez</button>
-      </div>
     </div>`;
   }).join('');
 }
@@ -728,12 +731,6 @@ function updateQty(id, val) {
   }
 }
 
-function setSelectionAcct(id, acct) {
-  if (selection[id]) {
-    selection[id].to_account = acct;
-    renderSelection();
-  }
-}
 
 function removeSelection(id) {
   delete selection[id];
@@ -747,18 +744,17 @@ async function confirmTransfer() {
 
   const expedition_label = document.getElementById('expedition-label').value.trim() || 'aktuell';
 
-  const items = entries.map(({ item, qty, to_account }) => ({
+  const items = entries.map(({ item, qty }) => ({
     id: item.id || item.item_id,
     name: item.name?.de || item.name?.en || item.name,
     name_en: item.name?.en,
     type: item.type || item.item_type,
     icon_url: item.icon_url || item.icon,
     quantity: qty,
-    to_account: to_account || 'consta',
   }));
 
   try {
-    await api('POST', '/api/transfers', { expedition_label, items });
+    await api('POST', '/api/transfers', { expedition_label, to_account: 'pool', items });
     selection = {};
     renderStash();
     renderSelection();
@@ -814,18 +810,14 @@ function renderTransfers() {
           : `<div class="item-icon-placeholder">📦</div>`}
         <div class="item-info" style="flex:1;min-width:0;">
           <div class="item-name">${t.item_name || '?'}</div>
-          <div class="item-meta">${t.from_account || 'silverbase'} → ${t.to_account || 'consta'}${t.item_type ? ' · ' + t.item_type : ''}</div>
+          <div class="item-meta">${t.from_account || 'silverbase'}${t.item_type ? ' · ' + t.item_type : ''}</div>
         </div>
+        ${ROLE === 'admin' && !done ? renderEmpfaenger(t) : ''}
         <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);white-space:nowrap;margin-right:12px;">
           <span class="num">${returned}</span> / <span style="color:var(--warn)">${total}</span>
         </div>
         ${!done ? `
         ${ROLE !== 'view' ? `
-        <select id="ret-from-${t.id}" onclick="event.stopPropagation()"
-          style="background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);font-family:var(--mono);font-size:11px;padding:3px 6px;outline:none;max-width:80px;">
-          <option value="consta" ${(t.to_account||'consta')==='consta' ? 'selected' : ''}>consta</option>
-          <option value="junez" ${(t.to_account||'consta')==='junez' ? 'selected' : ''}>junez</option>
-        </select>
         <input class="qty-input" type="number" min="1" max="${total}" value="${total}"
           id="ret-qty-${t.id}" style="width:56px;" onclick="event.stopPropagation()">
         <button class="btn btn-ok btn-sm" onclick="returnItem(${t.id})">✓</button>
@@ -963,6 +955,100 @@ async function deleteUserPassword(account) {
     loadAdminUsers();
   } catch (err) {
     toast(err.message, 'error');
+  }
+}
+
+// ── EMPFÄNGER Spalte ──────────────────────────────────────────────────────
+function renderEmpfaenger(t) {
+  const isPool = !t.to_account || t.to_account === 'pool' || t.to_account === 'unassigned';
+  const total = t.quantity_transferred;
+  const name  = (t.item_name || '').replace(/'/g, "\'");
+  if (isPool) {
+    return `<button onclick="openAssignPopup(${t.id},'${name}',${total},'pool')"
+      style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
+             padding:4px 10px;background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0;">
+      + Zuteilen</button>`;
+  }
+  const color = t.to_account === 'consta' ? 'var(--accent)' : 'var(--warn)';
+  return `<div onclick="openAssignPopup(${t.id},'${name}',${total},'${t.to_account}')" style="cursor:pointer;flex-shrink:0;">
+    <span class="tag" style="color:${color};border-color:${color};">${t.to_account} ×${total}</span>
+  </div>`;
+}
+
+// ── Assign Popup ──────────────────────────────────────────────────────────
+let assignPopupId   = null;
+let assignPopupTotal = 0;
+let assignQtys       = {};
+const ASSIGN_USERS   = [
+  { account: 'consta', label: 'consta', color: 'var(--accent)' },
+  { account: 'junez',  label: 'Junez',  color: 'var(--warn)'   },
+];
+
+function openAssignPopup(id, itemName, total, currentAcct) {
+  assignPopupId    = id;
+  assignPopupTotal = total;
+  assignQtys       = { consta: 0, junez: 0 };
+  if (currentAcct === 'consta') assignQtys.consta = total;
+  else if (currentAcct === 'junez') assignQtys.junez = total;
+
+  document.getElementById('assign-title').textContent = itemName;
+  document.getElementById('assign-subtitle').textContent = `SILVERBASE: ${total}`;
+  renderAssignUsers();
+  updateAssignTotal();
+  const ov = document.getElementById('assign-overlay');
+  ov.style.display = 'flex';
+}
+
+function renderAssignUsers() {
+  document.getElementById('assign-users').innerHTML = ASSIGN_USERS.map(u => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="width:90px;font-family:var(--mono);color:${u.color};font-size:13px;">${u.label}</div>
+      <button onclick="adjustAssign('${u.account}',-1)"
+        style="width:30px;height:30px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:16px;cursor:pointer;line-height:1;">−</button>
+      <div id="assign-qty-${u.account}"
+        style="min-width:36px;text-align:center;font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text);">
+        ${assignQtys[u.account]}</div>
+      <button onclick="adjustAssign('${u.account}',1)"
+        style="width:30px;height:30px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:16px;cursor:pointer;line-height:1;">+</button>
+    </div>
+  `).join('');
+}
+
+function adjustAssign(account, delta) {
+  const otherSum = Object.entries(assignQtys).filter(([a]) => a !== account).reduce((s,[,v]) => s+v, 0);
+  const maxVal   = assignPopupTotal - otherSum;
+  assignQtys[account] = Math.max(0, Math.min((assignQtys[account]||0) + delta, maxVal));
+  const el = document.getElementById('assign-qty-' + account);
+  if (el) el.textContent = assignQtys[account];
+  updateAssignTotal();
+}
+
+function updateAssignTotal() {
+  const assigned = Object.values(assignQtys).reduce((a,b) => a+b, 0);
+  const el = document.getElementById('assign-total');
+  if (el) {
+    el.textContent = `Zugeteilt: ${assigned} / ${assignPopupTotal}`;
+    el.style.color  = assigned === assignPopupTotal ? 'var(--ok)' : 'var(--warn)';
+  }
+}
+
+function closeAssignPopup() {
+  document.getElementById('assign-overlay').style.display = 'none';
+  assignPopupId = null;
+}
+
+async function confirmAssign() {
+  const assigned = Object.values(assignQtys).reduce((a,b) => a+b, 0);
+  if (assigned !== assignPopupTotal) {
+    toast(`Bitte alle ${assignPopupTotal} Einheiten zuteilen`, 'warn'); return;
+  }
+  try {
+    await api('POST', `/api/transfers/${assignPopupId}/assign`, { assignments: assignQtys });
+    closeAssignPopup();
+    await loadTransfers();
+    toast('Zuteilung gespeichert ✓', 'ok');
+  } catch (err) {
+    toast(err.message, 'err');
   }
 }
 
