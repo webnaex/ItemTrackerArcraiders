@@ -354,6 +354,62 @@
 
   /* scrollbar für body */
   * { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+
+  /* ── Responsive ─────────────────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    /* Header: kompakter */
+    .header { padding: 0 12px; gap: 8px; height: auto; min-height: 48px; flex-wrap: wrap; }
+    .header-logo { font-size: 16px; }
+    .header-tabs { gap: 0; margin-left: 0; overflow-x: auto; flex-shrink: 1; }
+    .tab { padding: 0 12px; height: 48px; font-size: 12px; }
+    .header-right { gap: 8px; }
+
+    /* Vor Reset: Stack statt 2 Spalten */
+    #page-vor { flex-direction: column !important; }
+    #page-vor .panel-selection { width: 100% !important; }
+
+    /* Main padding */
+    .main { padding: 12px; gap: 12px; }
+  }
+
+  @media (max-width: 600px) {
+    /* Header: Logo weg auf sehr kleinen Screens */
+    .header-logo { display: none; }
+    .header { padding: 0 8px; }
+    .tab { padding: 0 10px; font-size: 11px; letter-spacing: 0.04em; }
+
+    /* Transfer Rows: schmaler */
+    .transfer-row { padding: 10px 10px; gap: 8px; flex-wrap: wrap; }
+    .item-icon, .item-icon-placeholder { width: 32px; height: 32px; }
+    .item-info { min-width: 0; }
+    .item-name { font-size: 13px; }
+
+    /* Item Rows im Stash */
+    .item-row { padding: 8px 10px; }
+
+    /* Selection */
+    .selection-item { padding: 8px 10px; }
+    .selection-footer { padding: 12px 10px; }
+
+    /* Qty input */
+    .qty-input { width: 52px; font-size: 13px; }
+
+    /* History */
+    .history-row { padding: 10px 10px; flex-wrap: wrap; }
+
+    /* Assign Popup */
+    #assign-overlay > div { padding: 20px 16px; min-width: 280px; margin: 0 12px; }
+
+    /* Panel */
+    .panel-header { padding: 10px 12px; }
+    .panel-body { font-size: 13px; }
+
+    /* Main */
+    .main { padding: 8px; gap: 8px; }
+
+    /* Buttons */
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -380,7 +436,7 @@
         Vor Reset
       </button>
       <button class="tab" onclick="setTab('nach')" id="tab-nach">
-        Nach Reset
+        Lager
         <span class="badge" id="badge-nach" style="margin-left:8px">0</span>
       </button>
       <button class="tab" onclick="setTab('history')" id="tab-history">History</button>
@@ -388,6 +444,7 @@
     </div>
     <div class="header-right">
       <span class="status-pill ok" id="api-status">API BEREIT</span>
+      <button class="btn btn-outline btn-sm" onclick="doLogout()" id="btn-logout" style="display:none;">⏻ Logout</button>
     </div>
   </div>
 
@@ -449,10 +506,7 @@
         <div class="panel-title" style="font-family:var(--head);font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">
           Offene Transfers
         </div>
-        <button class="btn btn-ok" onclick="returnAll()" style="margin-left:auto;">
-          ✓ Alles zurückgegeben
-        </button>
-        <button class="btn btn-outline btn-sm" onclick="loadTransfers()">↻</button>
+        <button class="btn btn-outline btn-sm" onclick="loadTransfers()" style="margin-left:auto;">↻</button>
       </div>
       <div class="panel" style="flex:1;">
         <div class="panel-body" id="transfers-list">
@@ -559,6 +613,18 @@ async function doLogin() {
   loadTransfers();
 }
 
+function doLogout() {
+  PASSWORD = ''; ROLE = ''; USER_ACCOUNT = null;
+  stashItems = []; filteredItems = []; selection = {}; activeTransfers = [];
+  document.getElementById('btn-logout').style.display = 'none';
+  document.getElementById('api-status').textContent = 'API BEREIT';
+  document.getElementById('api-status').className = 'status-pill ok';
+  document.getElementById('pw-input').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('app').classList.remove('visible');
+}
+
 function applyRole() {
   const isAdmin = ROLE === 'admin';
   const isUser  = ROLE === 'user';
@@ -567,10 +633,6 @@ function applyRole() {
   document.getElementById('tab-vor').style.display = isAdmin ? '' : 'none';
   // "Admin" Tab nur für Superadmin
   document.getElementById('tab-admin').style.display = isAdmin ? '' : 'none';
-
-  // Alles zurückgegeben Button: nur Admin
-  const retAllBtn = document.querySelector('#page-nach .btn-ok');
-  if (retAllBtn) retAllBtn.style.display = isAdmin ? '' : 'none';
 
   // Status-Pill anpassen
   const pill = document.getElementById('api-status');
@@ -582,7 +644,9 @@ function applyRole() {
     pill.className = 'status-pill';
   }
 
-  // Wenn kein Admin: direkt zum "Nach Reset" Tab
+  document.getElementById('btn-logout').style.display = '';
+
+  // Wenn kein Admin: direkt zum "Lager" Tab
   if (!isAdmin) setTab('nach');
 }
 
