@@ -38,6 +38,14 @@ export async function initDB() {
       password TEXT NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    INSERT INTO app_settings (key, value) VALUES ('default_lang', 'de')
+      ON CONFLICT (key) DO NOTHING;
   `);
   console.log('✅ DB initialisiert');
 }

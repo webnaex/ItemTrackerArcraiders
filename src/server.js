@@ -36,6 +36,16 @@ async function getAllUsers() {
   return users;
 }
 
+// ─── Public Settings (vor Middleware!) ───────────────────────────────────────
+app.get('/api/settings/public', async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT value FROM app_settings WHERE key = 'default_lang'");
+    res.json({ default_lang: rows[0]?.value || 'de' });
+  } catch (_) {
+    res.json({ default_lang: 'de' });
+  }
+});
+
 // ─── Auth Endpoint (vor Middleware!) ──────────────────────────────────────────
 app.post('/api/auth', async (req, res) => {
   const { password } = req.body;
@@ -109,6 +119,33 @@ app.delete('/api/admin/users/:account/password', adminOnly, async (req, res) => 
   if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
   try {
     await pool.query('DELETE FROM user_passwords WHERE account = $1', [account]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Admin: App-Einstellungen ────────────────────────────────────────────────
+app.get('/api/admin/settings', adminOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT key, value FROM app_settings');
+    const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    res.json(settings);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/settings', adminOnly, async (req, res) => {
+  const { key, value } = req.body;
+  const allowedKeys = ['default_lang'];
+  if (!allowedKeys.includes(key)) return res.status(400).json({ error: 'Ungültiger Key' });
+  try {
+    await pool.query(
+      `INSERT INTO app_settings (key, value, updated_at) VALUES ($1, $2, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+      [key, value]
+    );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

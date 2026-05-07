@@ -528,6 +528,26 @@
 
   <!-- ════ ADMIN ════ -->
     <div class="page" id="page-admin" style="flex-direction:column;gap:16px;">
+      <!-- Settings Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title" data-i18n="admin.settings_title">⚙ App-Einstellungen</div>
+        </div>
+        <div class="panel-body" style="padding:16px 18px;">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="font-family:var(--mono);font-size:12px;color:var(--text-dim);white-space:nowrap;" data-i18n="admin.default_lang">Standard-Sprache</div>
+            <div style="display:flex;gap:6px;">
+              <button id="lang-de-btn" onclick="setDefaultLang('de')" class="btn btn-sm btn-outline"
+                style="font-family:var(--mono);">🇩🇪 DE</button>
+              <button id="lang-en-btn" onclick="setDefaultLang('en')" class="btn btn-sm btn-outline"
+                style="font-family:var(--mono);">🇬🇧 EN</button>
+            </div>
+            <div id="lang-status" style="font-family:var(--mono);font-size:11px;color:var(--text-muted);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users Panel -->
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title" data-i18n="admin.title">⚙ Benutzer-Verwaltung</div>
@@ -622,6 +642,9 @@ const T = {
     'status.pending': 'PENDING',
     'status.partial': 'PARTIAL',
     'status.done':    'DONE',
+    // Admin Settings
+    'admin.settings_title': '⚙ App-Einstellungen',
+    'admin.default_lang':   'Standard-Sprache',
     // Misc
     'api.ready':   'API BEREIT',
     'api.loading': 'LÄDT …',
@@ -682,6 +705,9 @@ const T = {
     'status.pending': 'PENDING',
     'status.partial': 'PARTIAL',
     'status.done':    'DONE',
+    // Admin Settings
+    'admin.settings_title': '⚙ App Settings',
+    'admin.default_lang':   'Default Language',
     // Misc
     'api.ready':   'API READY',
     'api.loading': 'LOADING …',
@@ -733,6 +759,21 @@ let stashItems = [];
 let filteredItems = [];
 let selection = {}; // { itemId: { item, qty } }
 let activeTransfers = [];
+
+// ── Init: Default-Sprache vom Server laden ────────────────────────────────
+(async function initLang() {
+  if (!localStorage.getItem('lang')) {
+    try {
+      const res = await fetch('/api/settings/public');
+      const { default_lang } = await res.json();
+      LANG = default_lang || 'de';
+    } catch (_) {}
+  }
+  document.getElementById('btn-lang').textContent = LANG === 'de' ? 'EN' : 'DE';
+  // Login-Screen Texte sofort übersetzen
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+})();
 
 // ── Auth ───────────────────────────────────────────────────────────────────
 document.getElementById('pw-input').addEventListener('keydown', e => {
@@ -826,7 +867,7 @@ function setTab(tab) {
 
   if (tab === 'nach') loadTransfers();
   if (tab === 'history') loadHistory();
-  if (tab === 'admin') loadAdminUsers();
+  if (tab === 'admin') { loadAdminUsers(); loadAdminSettings(); }
 }
 
 // ── Stash ──────────────────────────────────────────────────────────────────
@@ -1125,6 +1166,30 @@ async function loadHistory() {
 }
 
 // ── Admin: Benutzer-Verwaltung ────────────────────────────────────────────────
+async function setDefaultLang(lang) {
+  try {
+    await api('PUT', '/api/admin/settings', { key: 'default_lang', value: lang });
+    highlightDefaultLang(lang);
+    toast(lang.toUpperCase() + ' ' + (LANG === 'de' ? 'als Standard gesetzt ✓' : 'set as default ✓'), 'ok');
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+function highlightDefaultLang(lang) {
+  const de = document.getElementById('lang-de-btn');
+  const en = document.getElementById('lang-en-btn');
+  if (!de || !en) return;
+  de.style.background = lang === 'de' ? 'var(--accent-dim)' : '';
+  de.style.borderColor = lang === 'de' ? 'var(--accent)' : '';
+  de.style.color = lang === 'de' ? 'var(--accent)' : '';
+  en.style.background = lang === 'en' ? 'var(--accent-dim)' : '';
+  en.style.borderColor = lang === 'en' ? 'var(--accent)' : '';
+  en.style.color = lang === 'en' ? 'var(--accent)' : '';
+  const status = document.getElementById('lang-status');
+  if (status) status.textContent = '(' + (lang === 'de' ? 'Aktuell: Deutsch' : 'Current: English') + ')';
+}
+
 async function loadAdminUsers() {
   const list = document.getElementById('admin-users-list');
   list.innerHTML = `<div class="loading-row"><div class="spinner"></div>${t('admin.loading')}</div>`;
@@ -1149,6 +1214,13 @@ async function loadAdminUsers() {
   } catch (err) {
     list.innerHTML = `<div class="empty-state" style="color:var(--danger)">${err.message}</div>`;
   }
+}
+
+async function loadAdminSettings() {
+  try {
+    const settings = await api('GET', '/api/admin/settings');
+    highlightDefaultLang(settings.default_lang || 'de');
+  } catch (_) {}
 }
 
 async function setUserPassword(account) {
