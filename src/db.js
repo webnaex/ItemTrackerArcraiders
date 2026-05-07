@@ -7,6 +7,9 @@ const pool = new Pool({
 });
 
 export async function initDB() {
+  // Spalten-Migrationen zuerst (separate Queries damit sie immer laufen)
+  await pool.query(`ALTER TABLE user_passwords ADD COLUMN IF NOT EXISTS lang TEXT NOT NULL DEFAULT 'de'`).catch(() => {});
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS transfers (
       id SERIAL PRIMARY KEY,
@@ -36,9 +39,9 @@ export async function initDB() {
     CREATE TABLE IF NOT EXISTS user_passwords (
       account TEXT PRIMARY KEY,
       password TEXT NOT NULL,
+      lang TEXT NOT NULL DEFAULT 'de',
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
