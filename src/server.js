@@ -353,6 +353,29 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
   }
 });
 
+// ─── Return rückgängig machen (Admin + User) ─────────────────────────────────
+app.post('/api/transfers/:id/undo-return', notView, async (req, res) => {
+  const { id } = req.params;
+  const { role, account } = req.user;
+  try {
+    if (role === 'user') {
+      const check = await pool.query('SELECT to_account FROM transfers WHERE id = $1', [id]);
+      if (!check.rows.length || check.rows[0].to_account !== account)
+        return res.status(403).json({ error: 'Nicht dein Item' });
+    }
+    const { rows } = await pool.query(
+      `UPDATE transfers
+       SET quantity_returned = 0, status = 'pending', returned_at = NULL
+       WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Transfer nicht gefunden' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Alle Transfers als erledigt markieren (Admin only) ───────────────────────
 app.post('/api/transfers/return-all', adminOnly, async (req, res) => {
   try {
