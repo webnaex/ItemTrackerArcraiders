@@ -1194,11 +1194,9 @@ async function returnItem(id) {
         toast(err.message, 'err');
       }
     });
-    } catch (err) {
-      toast(err.message, 'err');
-      loadTransfers(); // Im Fehlerfall neu laden
-    }
-  }, 30000);
+  } catch (err) {
+    toast(err.message, 'err');
+  }
 }
 
 async function returnAll() {
