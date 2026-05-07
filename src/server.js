@@ -23,12 +23,12 @@ async function getAllUsers() {
 
   // DB-Passwörter überschreiben Env-Werte
   try {
-    const { rows } = await pool.query('SELECT account, password FROM user_passwords');
+    const { rows } = await pool.query('SELECT account, password, lang FROM user_passwords');
     for (const row of rows) {
       if (row.account === 'view') {
-        users[row.password] = { role: 'view', account: null };
+        users[row.password] = { role: 'view', account: null, lang: row.lang || 'de' };
       } else {
-        users[row.password] = { role: 'user', account: row.account };
+        users[row.password] = { role: 'user', account: row.account, lang: row.lang || 'de' };
       }
     }
   } catch (_) {}
@@ -82,12 +82,12 @@ const MANAGED_ACCOUNTS = ['view', 'consta', 'junez'];
 app.get('/api/admin/users', adminOnly, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT account, updated_at FROM user_passwords WHERE account = ANY($1)',
+      'SELECT account, updated_at, lang FROM user_passwords WHERE account = ANY($1)',
       [MANAGED_ACCOUNTS]
     );
     const result = MANAGED_ACCOUNTS.map(a => {
       const found = rows.find(r => r.account === a);
-      return { account: a, hasPassword: !!found, updatedAt: found?.updated_at || null };
+      return { account: a, hasPassword: !!found, updatedAt: found?.updated_at || null, lang: found?.lang || 'de' };
     });
     res.json(result);
   } catch (err) {
@@ -119,6 +119,24 @@ app.delete('/api/admin/users/:account/password', adminOnly, async (req, res) => 
   if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
   try {
     await pool.query('DELETE FROM user_passwords WHERE account = $1', [account]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/users/:account/lang', adminOnly, async (req, res) => {
+  const { account } = req.params;
+  const { lang } = req.body;
+  if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
+  if (!['de', 'en'].includes(lang)) return res.status(400).json({ error: 'Ungültige Sprache' });
+  try {
+    await pool.query(
+      `INSERT INTO user_passwords (account, password, lang, updated_at)
+       VALUES ($1, '', $2, NOW())
+       ON CONFLICT (account) DO UPDATE SET lang = $2, updated_at = NOW()`,
+      [account, lang]
+    );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

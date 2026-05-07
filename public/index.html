@@ -900,10 +900,11 @@ async function doLogin() {
     return;
   }
 
-  const { role, account } = await res.json();
+  const data = await res.json();
   PASSWORD = pw;
-  ROLE = role;
-  USER_ACCOUNT = account;
+  ROLE = data.role;
+  USER_ACCOUNT = data.account;
+  if (data.lang) { LANG = data.lang; localStorage.setItem('lang', LANG); }
 
   applyRole();
   document.getElementById('btn-lang').textContent = LANG === 'de' ? 'EN' : 'DE';
@@ -1409,14 +1410,20 @@ async function loadAdminUsers() {
     const users = await api('GET', '/api/admin/users');
     const labels = { view: LANG==='de'?'Nur-Ansicht (arc)':'View Only (arc)', consta: 'Consta', junez: 'Junez' };
     list.innerHTML = users.map(u => `
-      <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
         <div style="width:120px;font-family:var(--mono);color:var(--accent);font-size:13px;">${labels[u.account] || u.account}</div>
-        <div style="flex:1;display:flex;gap:8px;align-items:center;">
+        <div style="flex:1;display:flex;gap:8px;align-items:center;min-width:200px;">
           <input type="password" id="pw-${u.account}" placeholder="${u.hasPassword ? t('admin.set_ph') : t('admin.no_pw')}"
             style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:13px;"
             onkeydown="if(event.key==='Enter') setUserPassword('${u.account}')">
           <button class="btn btn-sm btn-primary" onclick="setUserPassword('${u.account}')">${t('admin.set')}</button>
           ${u.hasPassword ? `<button class="btn btn-sm btn-danger" onclick="deleteUserPassword('${u.account}')">✕</button>` : ''}
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <button onclick="setUserLang('${u.account}','de')" id="ulang-de-${u.account}"
+            style="font-family:var(--mono);font-size:11px;padding:4px 9px;border:1px solid var(--border2);background:${u.lang==='de'?'var(--accent-dim)':'transparent'};color:${u.lang==='de'?'var(--accent)':'var(--text-dim)'};border-color:${u.lang==='de'?'var(--accent)':'var(--border2)'};cursor:pointer;">DE</button>
+          <button onclick="setUserLang('${u.account}','en')" id="ulang-en-${u.account}"
+            style="font-family:var(--mono);font-size:11px;padding:4px 9px;border:1px solid var(--border2);background:${u.lang==='en'?'var(--accent-dim)':'transparent'};color:${u.lang==='en'?'var(--accent)':'var(--text-dim)'};border-color:${u.lang==='en'?'var(--accent)':'var(--border2)'};cursor:pointer;">EN</button>
         </div>
         <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
           ${u.hasPassword ? t('admin.active') : t('admin.inactive')}
@@ -1455,6 +1462,25 @@ async function deleteUserPassword(account) {
     await api('DELETE', '/api/admin/users/' + account + '/password');
     toast(t('admin.pw_del') + ' (' + account + ')', 'warn');
     loadAdminUsers();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+async function setUserLang(account, lang) {
+  try {
+    await api('PUT', '/api/admin/users/' + account + '/lang', { lang });
+    const de = document.getElementById('ulang-de-' + account);
+    const en = document.getElementById('ulang-en-' + account);
+    if (de && en) {
+      de.style.background = lang === 'de' ? 'var(--accent-dim)' : 'transparent';
+      de.style.color = lang === 'de' ? 'var(--accent)' : 'var(--text-dim)';
+      de.style.borderColor = lang === 'de' ? 'var(--accent)' : 'var(--border2)';
+      en.style.background = lang === 'en' ? 'var(--accent-dim)' : 'transparent';
+      en.style.color = lang === 'en' ? 'var(--accent)' : 'var(--text-dim)';
+      en.style.borderColor = lang === 'en' ? 'var(--accent)' : 'var(--border2)';
+    }
+    toast((lang === 'de' ? 'DE' : 'EN') + ' ' + (LANG === 'de' ? 'gesetzt für ' : 'set for ') + account + ' ✓', 'ok');
   } catch (err) {
     toast(err.message, 'error');
   }
