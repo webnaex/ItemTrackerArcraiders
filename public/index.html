@@ -1553,28 +1553,27 @@ async function returnAll() {
 async function deleteTransfer(id) {
   if (!confirm(i18n('confirm.delete'))) return;
 
-  // Optimistisch aus Liste entfernen
+  // Sofort löschen (Soft-Delete in DB)
+  try {
+    await api('DELETE', `/api/transfers/${id}`);
+  } catch (err) {
+    toast(err.message, 'err');
+    return;
+  }
+
   activeTransfers = activeTransfers.filter(tr => tr.id !== id);
   renderTransfers();
 
-  let deleted = false;
-
-  showUndo(i18n('undo.delete'), () => {
-    // Undo: Transfer wiederherstellen (neu laden aus DB, noch nicht gelöscht)
-    deleted = true; // Flag: Undo wurde gedrückt, nicht löschen
-    loadTransfers();
-  });
-
-  // Nach 30s tatsächlich löschen (wenn kein Undo)
-  setTimeout(async () => {
-    if (deleted) return; // Undo wurde gedrückt
+  showUndo(i18n('undo.delete'), async () => {
+    // Undo: Status zurücksetzen auf 'pending'
     try {
-      await api('DELETE', `/api/transfers/${id}`);
+      await api('POST', `/api/transfers/${id}/restore`);
+      await loadTransfers();
+      toast('↩ Wiederhergestellt', 'info');
     } catch (err) {
       toast(err.message, 'err');
-      loadTransfers();
     }
-  }, 30000);
+  });
 }
 
 // ── History ────────────────────────────────────────────────────────────────

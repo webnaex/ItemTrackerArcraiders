@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.15';
+const APP_VERSION = '1.2.16';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -653,6 +653,19 @@ app.get('/api/stats/slots', async (req, res) => {
     const usedPerUser = rows.map(r => ({ account: r.to_account, slots: parseInt(r.slots) }));
     const totalUsed = usedPerUser.reduce((s, r) => s + r.slots, 0);
     res.json({ totalSlots: TOTAL_SLOTS, totalUsed, free: TOTAL_SLOTS - totalUsed, perUser: usedPerUser });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Gelöschten Transfer wiederherstellen ────────────────────────────────────
+app.post('/api/transfers/:id/restore', adminOnly, async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE transfers SET status = 'pending', deleted_at = NULL WHERE id = $1 AND status = 'deleted'`,
+      [req.params.id]
+    );
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
