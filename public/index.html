@@ -586,7 +586,7 @@
             </tr>
           </thead>
           <tbody id="transfers-list">
-            <tr><td colspan="7"><div class="empty-state"><div class="icon">✅</div>Keine offenen Transfers.</div></td></tr>
+            <tr><td colspan="8"><div class="empty-state"><div class="icon">✅</div>Keine offenen Transfers.</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -1230,7 +1230,7 @@ function renderTransfers() {
   });
 
   list.innerHTML = Object.entries(groups).map(([label, transfers]) => `
-    <tr class="tr-section"><td colspan="7">// ${label}</td></tr>
+    <tr class="tr-section"><td colspan="8">// ${label}</td></tr>
     ${transfers.map(tr => {
       const done = tr.status === 'done';
       const statusKey = tr.status === 'partial' ? 'partial' : (done ? 'done' : 'pending');

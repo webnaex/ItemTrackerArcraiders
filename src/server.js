@@ -53,12 +53,6 @@ app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
 });
 
-// ─── Version (public) ────────────────────────────────────────────────────────
-app.get('/api/version', (req, res) => {
-  const sha = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || 'dev';
-  const ts  = process.env.RAILWAY_GIT_COMMIT_TIMESTAMP || null;
-  res.json({ version: sha, timestamp: ts });
-});
 
 // ─── Auth Endpoint (vor Middleware!) ──────────────────────────────────────────
 app.post('/api/auth', async (req, res) => {
@@ -145,12 +139,14 @@ app.put('/api/admin/users/:account/lang', adminOnly, async (req, res) => {
   if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
   if (!['de', 'en'].includes(lang)) return res.status(400).json({ error: 'Ungültige Sprache' });
   try {
-    await pool.query(
-      `INSERT INTO user_passwords (account, password, lang, updated_at)
-       VALUES ($1, '', $2, NOW())
-       ON CONFLICT (account) DO UPDATE SET lang = $2, updated_at = NOW()`,
-      [account, lang]
+    // Nur updaten wenn Account existiert - kein INSERT mit leerem Passwort
+    const { rowCount } = await pool.query(
+      `UPDATE user_passwords SET lang = $1, updated_at = NOW() WHERE account = $2`,
+      [lang, account]
     );
+    if (rowCount === 0) {
+      return res.status(400).json({ error: 'Account hat noch kein Passwort gesetzt' });
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
