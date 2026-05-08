@@ -822,13 +822,13 @@ const T = {
   }
 };
 
-function t(key, vars = {}) {
+function i18n(key, vars = {}) {
   let str = (T[LANG] || T.de)[key] || (T.de)[key] || key;
   Object.entries(vars).forEach(([k, v]) => { str = str.replace('{' + k + '}', v); });
   return str;
 }
 
-window._t = t; // Alias für Template-Literals wo 't' als Variable belegt ist
+window._t = i18n; // Alias für Template-Literals wo 't' als Variable belegt ist
 
 function toggleLang() {
   LANG = LANG === 'de' ? 'en' : 'de';
@@ -849,7 +849,7 @@ function applyLang() {
   // API-Status Pill (nur wenn noch nicht angemeldet oder BEREIT)
   const pill = document.getElementById('api-status');
   if (pill && (pill.textContent.includes('BEREIT') || pill.textContent.includes('READY'))) {
-    pill.textContent = t('api.ready');
+    pill.textContent = i18n('api.ready');
   }
   // Dynamische Inhalte neu rendern
   renderSelection();
@@ -979,15 +979,15 @@ function setTab(tab) {
 // ── Stash ──────────────────────────────────────────────────────────────────
 async function loadStash() {
   const list = document.getElementById('stash-list');
-  list.innerHTML = `<div class="loading-row"><div class="spinner"></div>${t('stash.loading')}</div>`;
-  document.getElementById('api-status').textContent = t('api.loading');
+  list.innerHTML = `<div class="loading-row"><div class="spinner"></div>${i18n('stash.loading')}</div>`;
+  document.getElementById('api-status').textContent = i18n('api.loading');
   document.getElementById('api-status').className = 'status-pill warn';
 
   try {
     const data = await api('GET', '/api/stash/silverbase');
     stashItems = data.items || [];
-    document.getElementById('stash-meta').textContent = `${stashItems.length} ${t('stash.items')}`;
-    document.getElementById('api-status').textContent = t('api.ok');
+    document.getElementById('stash-meta').textContent = `${stashItems.length} ${i18n('stash.items')}`;
+    document.getElementById('api-status').textContent = i18n('api.ok');
     document.getElementById('api-status').className = 'status-pill ok';
 
     // Build type filter
@@ -1070,7 +1070,7 @@ function renderSelection() {
   document.getElementById('btn-confirm').disabled = entries.length === 0;
 
   if (!entries.length) {
-    list.innerHTML = `<div class="empty-state" style="padding:40px 16px;"><div class="icon">🎯</div>${t('transfer.empty')}</div>`;
+    list.innerHTML = `<div class="empty-state" style="padding:40px 16px;"><div class="icon">🎯</div>${i18n('transfer.empty')}</div>`;
     return;
   }
 
@@ -1123,7 +1123,7 @@ async function confirmTransfer() {
     selection = {};
     renderStash();
     renderSelection();
-    toast(`${items.length} ${t('transfer.ok')}`, 'ok');
+    toast(`${items.length} ${i18n('transfer.ok')}`, 'ok');
     loadTransfers(); // Badge aktualisieren
   } catch (err) {
     toast(err.message, 'err');
@@ -1148,7 +1148,7 @@ async function loadTransfers() {
 function renderTransfers() {
   const list = document.getElementById('transfers-list');
   if (!activeTransfers.length) {
-    list.innerHTML = `<div class="empty-state"><div class="icon">✅</div>${t('lager.empty')}</div>`;
+    list.innerHTML = `<div class="empty-state"><div class="icon">✅</div>${i18n('lager.empty')}</div>`;
     return;
   }
 
@@ -1195,7 +1195,7 @@ function renderTransfers() {
         <button class="btn btn-ok btn-sm" onclick="returnItem(${tr.id})">✓</button>
         ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>` : ''}
         ` : `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">⟳ ${total}</span>`}
-        ` : `<span class="tag">${t("status.done")}</span>`}
+        ` : `<span class="tag">${i18n("status.done")}</span>`}
       </div>`;
     }).join('')}
   `).join('');
@@ -1206,17 +1206,17 @@ async function returnItem(id) {
   const quantity = parseInt(input?.value) || 0;
   if (!quantity) return;
 
-  if (!confirm(t('confirm.return'))) return;
+  if (!confirm(i18n('confirm.return'))) return;
 
   try {
     await api('PATCH', `/api/transfers/${id}/return`, { quantity });
     await loadTransfers();
 
-    showUndo(t('undo.return'), async () => {
+    showUndo(i18n('undo.return'), async () => {
       try {
         await api('POST', `/api/transfers/${id}/undo-return`);
         await loadTransfers();
-        toast('↩ ' + t('return.ok'), 'info');
+        toast('↩ ' + i18n('return.ok'), 'info');
       } catch (err) {
         toast(err.message, 'err');
       }
@@ -1238,7 +1238,7 @@ async function returnAll() {
 }
 
 async function deleteTransfer(id) {
-  if (!confirm(t('confirm.delete'))) return;
+  if (!confirm(i18n('confirm.delete'))) return;
 
   // Optimistisch aus Liste entfernen
   activeTransfers = activeTransfers.filter(tr => tr.id !== id);
@@ -1246,7 +1246,7 @@ async function deleteTransfer(id) {
 
   let deleted = false;
 
-  showUndo(t('undo.delete'), () => {
+  showUndo(i18n('undo.delete'), () => {
     // Undo: Transfer wiederherstellen (neu laden aus DB, noch nicht gelöscht)
     deleted = true; // Flag: Undo wurde gedrückt, nicht löschen
     loadTransfers();
@@ -1328,7 +1328,7 @@ async function loadBackups() {
   try {
     const backups = await api('GET', '/api/admin/backups');
     if (!backups.length) {
-      list.innerHTML = `<div class="empty-state" style="padding:24px 0;" data-i18n="admin.backup_empty">${t('admin.backup_empty')}</div>`;
+      list.innerHTML = `<div class="empty-state" style="padding:24px 0;" data-i18n="admin.backup_empty">${i18n('admin.backup_empty')}</div>`;
       return;
     }
     list.innerHTML = backups.map(b => {
@@ -1341,7 +1341,7 @@ async function loadBackups() {
         </div>
         <button class="btn btn-sm" onclick="restoreBackup(${b.id},'${b.label.replace(/'/g,"\'")}')"
           style="border-color:var(--ok);color:var(--ok);background:var(--ok-dim);white-space:nowrap;">
-          ${t('admin.backup_restore')}
+          ${i18n('admin.backup_restore')}
         </button>
         <button class="btn btn-sm btn-danger" onclick="deleteBackup(${b.id})" style="padding:5px 8px;">🗑</button>
       </div>`;
@@ -1356,23 +1356,23 @@ async function createBackup() {
   try {
     await api('POST', '/api/admin/backups', { label });
     document.getElementById('backup-label').value = '';
-    toast(t('admin.backup_ok'), 'ok');
+    toast(i18n('admin.backup_ok'), 'ok');
     loadBackups();
   } catch (err) { toast(err.message, 'err'); }
 }
 
 async function restoreBackup(id, label) {
-  if (!confirm(t('admin.backup_confirm', {l: label}))) return;
+  if (!confirm(i18n('admin.backup_confirm', {l: label}))) return;
   try {
     const result = await api('POST', `/api/admin/backups/${id}/restore`);
-    toast(t('admin.restore_ok') + ` (${result.count} Items)`, 'ok');
+    toast(i18n('admin.restore_ok') + ` (${result.count} Items)`, 'ok');
     loadBackups();
     loadTransfers();
   } catch (err) { toast(err.message, 'err'); }
 }
 
 async function deleteBackup(id) {
-  if (!confirm(t('admin.backup_del_confirm'))) return;
+  if (!confirm(i18n('admin.backup_del_confirm'))) return;
   try {
     await api('DELETE', `/api/admin/backups/${id}`);
     loadBackups();
@@ -1405,7 +1405,7 @@ function highlightDefaultLang(lang) {
 
 async function loadAdminUsers() {
   const list = document.getElementById('admin-users-list');
-  list.innerHTML = `<div class="loading-row"><div class="spinner"></div>${t('admin.loading')}</div>`;
+  list.innerHTML = `<div class="loading-row"><div class="spinner"></div>${i18n('admin.loading')}</div>`;
   try {
     const users = await api('GET', '/api/admin/users');
     const labels = { view: LANG==='de'?'Nur-Ansicht (arc)':'View Only (arc)', consta: 'Consta', junez: 'Junez' };
@@ -1413,10 +1413,10 @@ async function loadAdminUsers() {
       <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
         <div style="width:120px;font-family:var(--mono);color:var(--accent);font-size:13px;">${labels[u.account] || u.account}</div>
         <div style="flex:1;display:flex;gap:8px;align-items:center;min-width:200px;">
-          <input type="password" id="pw-${u.account}" placeholder="${u.hasPassword ? t('admin.set_ph') : t('admin.no_pw')}"
+          <input type="password" id="pw-${u.account}" placeholder="${u.hasPassword ? i18n('admin.set_ph') : i18n('admin.no_pw')}"
             style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:13px;"
             onkeydown="if(event.key==='Enter') setUserPassword('${u.account}')">
-          <button class="btn btn-sm btn-primary" onclick="setUserPassword('${u.account}')">${t('admin.set')}</button>
+          <button class="btn btn-sm btn-primary" onclick="setUserPassword('${u.account}')">${i18n('admin.set')}</button>
           ${u.hasPassword ? `<button class="btn btn-sm btn-danger" onclick="deleteUserPassword('${u.account}')">✕</button>` : ''}
         </div>
         <div style="display:flex;gap:4px;align-items:center;">
@@ -1426,7 +1426,7 @@ async function loadAdminUsers() {
             style="font-family:var(--mono);font-size:11px;padding:4px 9px;border:1px solid var(--border2);background:${u.lang==='en'?'var(--accent-dim)':'transparent'};color:${u.lang==='en'?'var(--accent)':'var(--text-dim)'};border-color:${u.lang==='en'?'var(--accent)':'var(--border2)'};cursor:pointer;">EN</button>
         </div>
         <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;">
-          ${u.hasPassword ? t('admin.active') : t('admin.inactive')}
+          ${u.hasPassword ? i18n('admin.active') : i18n('admin.inactive')}
         </div>
       </div>
     `).join('');
@@ -1448,7 +1448,7 @@ async function setUserPassword(account) {
   if (!password) { toast('Bitte Passwort eingeben', 'warn'); return; }
   try {
     await api('PUT', '/api/admin/users/' + account + '/password', { password });
-    toast(t('admin.pw_set') + ' (' + account + ')', 'ok');
+    toast(i18n('admin.pw_set') + ' (' + account + ')', 'ok');
     input.value = '';
     loadAdminUsers();
   } catch (err) {
@@ -1457,10 +1457,10 @@ async function setUserPassword(account) {
 }
 
 async function deleteUserPassword(account) {
-  if (!confirm(t('admin.confirm_del', {a: account}))) return;
+  if (!confirm(i18n('admin.confirm_del', {a: account}))) return;
   try {
     await api('DELETE', '/api/admin/users/' + account + '/password');
-    toast(t('admin.pw_del') + ' (' + account + ')', 'warn');
+    toast(i18n('admin.pw_del') + ' (' + account + ')', 'warn');
     loadAdminUsers();
   } catch (err) {
     toast(err.message, 'error');
@@ -1495,7 +1495,7 @@ function renderEmpfaenger(tr) {
     return `<button onclick="openAssignPopup(${tr.id},'${name}',${total},'silverbase')"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
              padding:4px 10px;background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-      ${t('lager.zuteilen')}</button>`;
+      ${i18n('lager.zuteilen')}</button>`;
   }
   const color = tr.to_account === 'consta' ? 'var(--accent)' : 'var(--warn)';
   return `<div onclick="openAssignPopup(${tr.id},'${name}',${total},'${tr.to_account}')" style="cursor:pointer;flex-shrink:0;">
@@ -1520,7 +1520,7 @@ function openAssignPopup(id, itemName, total, currentAcct) {
   else if (currentAcct === 'junez') assignQtys.junez = total;
 
   document.getElementById('assign-title').textContent = itemName;
-  document.getElementById('assign-subtitle').textContent = `${t('assign.subtitle')}: ${total}`;
+  document.getElementById('assign-subtitle').textContent = `${i18n('assign.subtitle')}: ${total}`;
   renderAssignUsers();
   updateAssignTotal();
   const ov = document.getElementById('assign-overlay');
@@ -1555,7 +1555,7 @@ function updateAssignTotal() {
   const assigned = Object.values(assignQtys).reduce((a,b) => a+b, 0);
   const el = document.getElementById('assign-total');
   if (el) {
-    el.textContent = `${t('assign.total')}: ${assigned} / ${assignPopupTotal}`;
+    el.textContent = `${i18n('assign.total')}: ${assigned} / ${assignPopupTotal}`;
     el.style.color  = assigned === assignPopupTotal ? 'var(--ok)' : 'var(--warn)';
   }
 }
@@ -1568,13 +1568,13 @@ function closeAssignPopup() {
 async function confirmAssign() {
   const assigned = Object.values(assignQtys).reduce((a,b) => a+b, 0);
   if (assigned !== assignPopupTotal) {
-    toast(t('assign.warn', {n: assignPopupTotal}), 'warn'); return;
+    toast(i18n('assign.warn', {n: assignPopupTotal}), 'warn'); return;
   }
   try {
     await api('POST', `/api/transfers/${assignPopupId}/assign`, { assignments: assignQtys });
     closeAssignPopup();
     await loadTransfers();
-    toast(t('assign.ok'), 'ok');
+    toast(i18n('assign.ok'), 'ok');
   } catch (err) {
     toast(err.message, 'err');
   }
