@@ -507,6 +507,7 @@
       <button class="tab active" onclick="setTab('vor')" id="tab-vor"><span data-i18n="nav.vor_reset">Vor Reset</span></button>
       <button class="tab" onclick="setTab('nach')" id="tab-nach"><span data-i18n="nav.lager">Lager</span><span class="badge" id="badge-nach" style="margin-left:8px">0</span></button>
       <button class="tab" onclick="setTab('history')" id="tab-history"><span data-i18n="nav.history">History</span></button>
+      <button class="tab" onclick="setTab('usage')" id="tab-usage"><span data-i18n="nav.usage">Nutzung</span></button>
       <button class="tab" onclick="setTab('admin')" id="tab-admin" style="display:none;margin-left:auto;opacity:0.7;font-size:12px;"><span data-i18n="nav.admin">⚙ Admin</span></button>
     </div>
     <div class="header-right">
@@ -626,6 +627,14 @@
             <tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><span data-i18n="history.empty">Klick auf "Laden"</span></div></td></tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+  <!-- ════ USAGE / NUTZUNG ════ -->
+    <div class="page" id="page-usage" style="flex-direction:column;gap:16px;padding:24px;">
+      <div style="font-family:var(--head);font-size:22px;font-weight:700;letter-spacing:.07em;" data-i18n="nav.usage">Nutzung</div>
+      <div id="usage-content" style="display:flex;flex-direction:column;gap:20px;max-width:600px;">
+        <div class="empty-state"><div class="icon">📊</div>Wird geladen…</div>
       </div>
     </div>
 
@@ -766,6 +775,7 @@ const T = {
     'nav.vor_reset': 'Vor Reset',
     'nav.lager':     'Lager',
     'nav.history':   'History',
+    'nav.usage':     'Nutzung',
     'nav.admin':     '⚙ Admin',
     'logout':        '⏻ Logout',
     // Stash
@@ -870,6 +880,7 @@ const T = {
     'nav.vor_reset': 'Pre-Reset',
     'nav.lager':     'Storage',
     'nav.history':   'History',
+    'nav.usage':     'Usage',
     'nav.admin':     '⚙ Admin',
     'logout':        '⏻ Logout',
     // Stash
@@ -1161,6 +1172,7 @@ function setTab(tab) {
     autoRefreshTimer = null;
   }
   if (tab === 'history') loadHistory();
+  if (tab === 'usage') loadUsage();
   if (tab === 'admin') { loadAdminUsers(); loadAdminSettings(); loadBackups(); }
 }
 
@@ -1566,6 +1578,58 @@ async function deleteTransfer(id) {
 }
 
 // ── History ────────────────────────────────────────────────────────────────
+async function loadUsage() {
+  const el = document.getElementById('usage-content');
+  el.innerHTML = `<div class="loading-row"><div class="spinner"></div>Lädt…</div>`;
+  try {
+    const d = await api('GET', '/api/stats/slots');
+    const pct = Math.round((d.totalUsed / d.totalSlots) * 100);
+    const barColor = pct > 85 ? 'var(--danger)' : pct > 60 ? 'var(--warn)' : 'var(--ok)';
+    const colors = ['var(--accent)', 'var(--warn)', '#b06bff', '#ff6b9d', '#6bffda'];
+    const lbl = k => LANG === 'de' ? ({total:'Gesamt',perplayer:'Pro Spieler',used:'belegt',free:'frei',slots:'Slots',none:'Keine Transfers im Lager',nototal:'Kein Transfer'})[k] : ({total:'Total',perplayer:'Per Player',used:'used',free:'free',slots:'slots',none:'No transfers in storage',nototal:'No transfers'})[k];
+    el.innerHTML = `
+      <div class="panel" style="padding:20px 24px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+          <div style="font-family:var(--head);font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">${lbl('total')}</div>
+          <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);">
+            <span style="color:${barColor};font-size:20px;font-weight:700;">${d.totalUsed}</span>
+            <span style="color:var(--text-muted);"> / ${d.totalSlots} ${lbl('slots')}</span>
+          </div>
+        </div>
+        <div style="background:var(--bg3);border-radius:4px;height:12px;overflow:hidden;margin-bottom:6px;">
+          <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width .4s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--text-muted);">
+          <span>${pct}% ${lbl('used')}</span>
+          <span style="color:var(--ok);">${d.free} ${lbl('free')}</span>
+        </div>
+      </div>
+      <div class="panel" style="padding:20px 24px;">
+        <div style="font-family:var(--head);font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;">${lbl('perplayer')}</div>
+        ${d.perUser.length === 0
+          ? `<div style="color:var(--text-muted);font-size:13px;">${lbl('none')}</div>`
+          : d.perUser.map((u, i) => {
+              const uPct = Math.round((u.slots / d.totalSlots) * 100);
+              const col = colors[i % colors.length];
+              return `<div style="margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+                  <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${col};">${u.account}</div>
+                  <div style="font-family:var(--mono);font-size:12px;color:var(--text-dim);">
+                    <span style="color:${col};font-weight:700;">${u.slots}</span> / ${d.totalSlots} &nbsp;(${uPct}%)
+                  </div>
+                </div>
+                <div style="background:var(--bg3);border-radius:3px;height:8px;overflow:hidden;">
+                  <div style="height:100%;width:${uPct}%;background:${col};border-radius:3px;transition:width .4s;"></div>
+                </div>
+              </div>`;
+            }).join('')
+        }
+      </div>`;
+  } catch (err) {
+    el.innerHTML = `<div class="empty-state" style="color:var(--danger)">${err.message}</div>`;
+  }
+}
+
 async function loadHistory() {
   const list = document.getElementById('history-list');
   list.innerHTML = `<tr><td colspan="8"><div class="loading-row"><div class="spinner"></div>Lade History …</div></td></tr>`;
