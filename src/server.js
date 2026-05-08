@@ -47,7 +47,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.2.3';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -407,12 +407,17 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
       .map(([acct, qty]) => [acct, parseInt(qty)]);
 
     const total = entries.reduce((s, [, q]) => s + q, 0);
-    if (total !== orig.quantity_transferred) {
-      return res.status(400).json({ error: `Summe (${total}) ≠ Menge (${orig.quantity_transferred})` });
+    if (total > orig.quantity_transferred) {
+      return res.status(400).json({ error: `Summe (${total}) > Menge (${orig.quantity_transferred})` });
+    }
+    if (total === 0) {
+      return res.json({ transfers: [orig] });
     }
 
-    if (entries.length === 1) {
-      // Nur Account ändern, kein Split
+    const remainder = orig.quantity_transferred - total;
+
+    // Wenn alles auf einen Account und kein Rest → nur Account updaten
+    if (entries.length === 1 && remainder === 0) {
       const [acct] = entries[0];
       const { rows: updated } = await pool.query(
         'UPDATE transfers SET to_account = $1 WHERE id = $2 RETURNING *',
@@ -432,6 +437,18 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
         [orig.expedition_label, orig.item_id, orig.item_name, orig.item_name_en,
          orig.item_type, orig.icon_url, qty, orig.from_account, acct, orig.created_at]
+      );
+      created.push(r[0]);
+    }
+    // Rest bleibt als eigener Transfer ohne spezifischen Empfänger (to_account = from_account)
+    if (remainder > 0) {
+      const { rows: r } = await pool.query(
+        `INSERT INTO transfers
+          (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
+           quantity_transferred, from_account, to_account, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [orig.expedition_label, orig.item_id, orig.item_name, orig.item_name_en,
+         orig.item_type, orig.icon_url, remainder, orig.from_account, orig.from_account, orig.created_at]
       );
       created.push(r[0]);
     }

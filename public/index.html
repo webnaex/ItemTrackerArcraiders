@@ -1730,7 +1730,9 @@ function updateAssignTotal() {
   const el = document.getElementById('assign-total');
   if (el) {
     el.textContent = `${i18n('assign.total')}: ${assigned} / ${assignPopupTotal}`;
-    el.style.color  = assigned === assignPopupTotal ? 'var(--ok)' : 'var(--warn)';
+    el.style.color = assigned === assignPopupTotal
+      ? 'var(--ok)'
+      : (assigned > 0 ? 'var(--text-dim)' : 'var(--text-muted)');
   }
 }
 
@@ -1741,9 +1743,7 @@ function closeAssignPopup() {
 
 async function confirmAssign() {
   const assigned = Object.values(assignQtys).reduce((a,b) => a+b, 0);
-  if (assigned !== assignPopupTotal) {
-    toast(i18n('assign.warn', {n: assignPopupTotal}), 'warn'); return;
-  }
+  if (assigned === 0) { closeAssignPopup(); return; }
   try {
     await api('POST', `/api/transfers/${assignPopupId}/assign`, { assignments: assignQtys });
     closeAssignPopup();
