@@ -668,6 +668,16 @@
       </div>
 
       <!-- Users Panel -->
+      <div class="panel" style="border-color:var(--danger);border-width:1px;">
+        <div class="panel-header" style="border-bottom-color:var(--danger);">
+          <div class="panel-title" style="color:var(--danger);">⚠ RESET</div>
+        </div>
+        <div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div style="font-size:13px;color:var(--text-dim);flex:1;">Alle Transfers unwiderruflich löschen (History, Lager, alles).</div>
+          <button class="btn btn-danger" onclick="resetAllTransfers()">🗑 Alle Transfers löschen</button>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-header">
           <div class="panel-title" data-i18n="admin.title">⚙ Benutzer-Verwaltung</div>
@@ -1720,6 +1730,18 @@ async function loadAdminUsers() {
     `).join('');
   } catch (err) {
     list.innerHTML = `<div class="empty-state" style="color:var(--danger)">${err.message}</div>`;
+  }
+}
+
+async function resetAllTransfers() {
+  if (!confirm('⚠ ACHTUNG: Wirklich ALLE Transfers löschen?\n\nDas kann nicht rückgängig gemacht werden!')) return;
+  if (!confirm('Letzte Sicherheitsfrage: Alles löschen und von 0 starten?')) return;
+  try {
+    await api('DELETE', '/api/admin/transfers/all');
+    toast('Alle Transfers gelöscht ✓', 'ok');
+    await loadTransfers();
+  } catch (err) {
+    toast(err.message, 'err');
   }
 }
 

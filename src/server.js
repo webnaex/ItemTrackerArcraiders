@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.12';
+const APP_VERSION = '1.2.13';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -619,6 +619,16 @@ app.delete('/api/transfers/:id', adminOnly, async (req, res) => {
       `UPDATE transfers SET status = 'deleted', deleted_at = NOW() WHERE id = $1`,
       [req.params.id]
     );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Alle Transfers löschen (Admin Reset) ────────────────────────────────────
+app.delete('/api/admin/transfers/all', adminOnly, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM transfers');
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
