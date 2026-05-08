@@ -1100,6 +1100,18 @@ function applyRole() {
   const isUser  = ROLE === 'user';
 
   // "Vor Reset" Tab nur für Admin sichtbar
+  // Assignierbare User laden (role='user')
+  if (ROLE === 'admin' || ROLE === 'view') {
+    api('GET', '/api/admin/users').then(users => {
+      ASSIGN_USERS = users
+        .filter(u => u.role === 'user' || (!u.role && u.account !== 'view'))
+        .map((u, i) => ({
+          account: u.account,
+          label: u.account.charAt(0).toUpperCase() + u.account.slice(1),
+          color: i % 2 === 0 ? 'var(--accent)' : 'var(--warn)',
+        }));
+    }).catch(() => {});
+  }
   document.getElementById('tab-vor').style.display = isAdmin ? '' : 'none';
   // "Admin" Tab nur für Superadmin
   document.getElementById('tab-admin').style.display = isAdmin ? '' : 'none';
@@ -1855,17 +1867,14 @@ function renderEmpfaenger(tr) {
 let assignPopupId   = null;
 let assignPopupTotal = 0;
 let assignQtys       = {};
-const ASSIGN_USERS   = [
-  { account: 'consta', label: 'consta', color: 'var(--accent)' },
-  { account: 'junez',  label: 'Junez',  color: 'var(--warn)'   },
-];
+let ASSIGN_USERS     = []; // Wird nach Login aus API geladen
 
 function openAssignPopup(id, itemName, total, currentAcct) {
   assignPopupId    = id;
   assignPopupTotal = total;
-  assignQtys       = { consta: 0, junez: 0 };
-  if (currentAcct === 'consta') assignQtys.consta = total;
-  else if (currentAcct === 'junez') assignQtys.junez = total;
+  assignQtys = {};
+  ASSIGN_USERS.forEach(u => { assignQtys[u.account] = 0; });
+  if (currentAcct && assignQtys.hasOwnProperty(currentAcct)) assignQtys[currentAcct] = total;
 
   document.getElementById('assign-title').textContent = itemName;
   document.getElementById('assign-subtitle').textContent = `${i18n('assign.subtitle')}: ${total}`;

@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.13';
+const APP_VERSION = '1.2.14';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -316,7 +316,9 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
 
   if (!items?.length) return res.status(400).json({ error: 'Keine Items angegeben' });
 
-  const validToAccounts = ['consta', 'junez', 'silverbase'];
+  // Erlaubte Empfänger: alle User-Accounts aus der DB + silverbase
+  const { rows: userRows } = await pool.query("SELECT account FROM user_passwords WHERE role = 'user'");
+  const validToAccounts = ['silverbase', ...userRows.map(r => r.account)];
 
   try {
     const inserted = [];
@@ -438,7 +440,8 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Transfer nicht gefunden' });
     const orig = rows[0];
 
-    const validAccounts = ['consta', 'junez'];
+    const { rows: aRows } = await pool.query("SELECT account FROM user_passwords WHERE role = 'user'");
+    const validAccounts = aRows.map(r => r.account);
     const entries = Object.entries(assignments)
       .filter(([acct, qty]) => validAccounts.includes(acct) && parseInt(qty) > 0)
       .map(([acct, qty]) => [acct, parseInt(qty)]);
