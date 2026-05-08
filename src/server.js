@@ -47,7 +47,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -319,17 +319,19 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
 // ─── Aktive Transfers abrufen ──────────────────────────────────────────────────
 app.get('/api/transfers', async (req, res) => {
   const { role, account } = req.user;
+  const showAll = req.query.all === '1';
   try {
     let rows;
     if (role === 'user') {
-      ({ rows } = await pool.query(
-        `SELECT * FROM transfers WHERE status != 'done' AND to_account = $1 ORDER BY created_at DESC`,
-        [account]
-      ));
+      const q = showAll
+        ? `SELECT * FROM transfers WHERE to_account = $1 ORDER BY created_at DESC`
+        : `SELECT * FROM transfers WHERE status != 'done' AND to_account = $1 ORDER BY created_at DESC`;
+      ({ rows } = await pool.query(q, [account]));
     } else {
-      ({ rows } = await pool.query(
-        `SELECT * FROM transfers WHERE status != 'done' ORDER BY created_at DESC`
-      ));
+      const q = showAll
+        ? `SELECT * FROM transfers ORDER BY created_at DESC`
+        : `SELECT * FROM transfers WHERE status != 'done' ORDER BY created_at DESC`;
+      ({ rows } = await pool.query(q));
     }
     res.json(rows);
   } catch (err) {
@@ -500,6 +502,38 @@ app.post('/api/transfers/return-all', adminOnly, async (req, res) => {
 });
 
 // ─── Transfer löschen (Admin only) ───────────────────────────────────────────
+// ─── Duplikate zusammenführen ─────────────────────────────────────────────────
+app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
+  try {
+    // Find groups: same item_name + to_account + status='pending' with multiple rows
+    const { rows: groups } = await pool.query(`
+      SELECT item_name, to_account, expedition_label,
+             array_agg(id ORDER BY created_at) AS ids,
+             SUM(quantity_transferred) AS total_qty
+      FROM transfers
+      WHERE status = 'pending'
+      GROUP BY item_name, to_account, expedition_label
+      HAVING COUNT(*) > 1
+    `);
+    let merged = 0;
+    for (const g of groups) {
+      const [keepId, ...removeIds] = g.ids;
+      await pool.query(
+        `UPDATE transfers SET quantity_transferred = $1 WHERE id = $2`,
+        [g.total_qty, keepId]
+      );
+      await pool.query(
+        `DELETE FROM transfers WHERE id = ANY($1)`,
+        [removeIds]
+      );
+      merged += removeIds.length;
+    }
+    res.json({ merged });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete('/api/transfers/:id', adminOnly, async (req, res) => {
   try {
     await pool.query('DELETE FROM transfers WHERE id = $1', [req.params.id]);

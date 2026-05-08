@@ -567,9 +567,17 @@
 
     <!-- ════ NACH RESET ════ -->
     <div class="page" id="page-nach" style="flex-direction:column;gap:16px;">
-      <div class="top-bar">
+      <div class="top-bar" style="flex-wrap:wrap;gap:8px;">
         <div class="panel-title" style="font-family:var(--head);font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;" data-i18n="lager.title">Offene Transfers</div>
-        <button class="btn btn-outline btn-sm" onclick="loadTransfers()" style="margin-left:auto;">↻</button>
+        <input id="lager-search" type="text" placeholder="Suchen..." oninput="onSearchInput(this.value)"
+          style="padding:5px 10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:6px;font-size:13px;width:160px;">
+        <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);cursor:pointer;user-select:none;">
+          <input type="checkbox" id="toggle-showdone" onchange="toggleShowDone(this.checked)" style="cursor:pointer;">
+          <span data-i18n="lager.showdone">Erledigte</span>
+        </label>
+        <button id="btn-merge" class="btn btn-outline btn-sm" onclick="mergeDuplicates()" style="display:none;" data-i18n="lager.merge">Duplikate zusammenführen</button>
+        <span id="lager-refreshed" style="margin-left:auto;font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
+        <button class="btn btn-outline btn-sm" onclick="loadTransfers()" title="Aktualisieren">↻</button>
       </div>
       <div class="panel" style="flex:1;overflow:auto;">
         <table class="transfers-table">
@@ -735,6 +743,12 @@ const T = {
     // Lager
     'lager.title':   'Lager Bestand',
     'lager.empty':   'Keine offenen Transfers.',
+    'lager.search':  'Suchen...',
+    'lager.showdone': 'Erledigte',
+    'lager.merge':   'Duplikate zusammenführen',
+    'lager.merged':  'Duplikate zusammengeführt',
+    'lager.refreshed': 'Aktualisiert',
+    'lager.nodups':  'Keine Duplikate gefunden',
     'lager.zuteilen':'+ Zuteilen',
     // Assign Popup
     'assign.subtitle': 'SILVERBASE',
@@ -822,6 +836,12 @@ const T = {
     // Lager
     'lager.title':    'Stock Inventory',
     'lager.empty':    'No open transfers.',
+    'lager.search':  'Search...',
+    'lager.showdone': 'Completed',
+    'lager.merge':   'Merge duplicates',
+    'lager.merged':  'Duplicates merged',
+    'lager.refreshed': 'Refreshed',
+    'lager.nodups':  'No duplicates found',
     'lager.zuteilen': '+ Assign',
     // Assign Popup
     'assign.subtitle': 'SILVERBASE',
@@ -927,6 +947,9 @@ let stashItems = [];
 let filteredItems = [];
 let selection = {}; // { itemId: { item, qty } }
 let activeTransfers = [];
+let showDone = false;
+let searchQuery = '';
+let autoRefreshTimer = null;
 
 // ── Init: Default-Sprache vom Server laden ────────────────────────────────
 (async function initLang() {
@@ -1040,7 +1063,14 @@ function setTab(tab) {
   document.getElementById('tab-' + tab).classList.add('active');
   document.getElementById('page-' + tab).classList.add('active');
 
-  if (tab === 'nach') loadTransfers();
+  if (tab === 'nach') {
+    loadTransfers();
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = setInterval(loadTransfers, 60000);
+  } else {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
   if (tab === 'history') loadHistory();
   if (tab === 'admin') { loadAdminUsers(); loadAdminSettings(); loadBackups(); }
 }
@@ -1202,13 +1232,20 @@ async function confirmTransfer() {
 // ── Transfers ──────────────────────────────────────────────────────────────
 async function loadTransfers() {
   try {
-    activeTransfers = await api('GET', '/api/transfers');
+    const url = showDone ? '/api/transfers?all=1' : '/api/transfers';
+    activeTransfers = await api('GET', url);
     renderTransfers();
     // Badge
     const badge = document.getElementById('badge-nach');
     const pending = activeTransfers.filter(t => t.status !== 'done').length;
     badge.textContent = pending;
     badge.classList.toggle('visible', pending > 0);
+    // Timestamp
+    const ts = document.getElementById('lager-refreshed');
+    if (ts) ts.textContent = i18n('lager.refreshed') + ': ' + new Date().toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+    // Merge button visibility (admin only)
+    const btnMerge = document.getElementById('btn-merge');
+    if (btnMerge) btnMerge.style.display = ROLE === 'admin' ? '' : 'none';
   } catch (err) {
     toast(err.message, 'err');
   }
@@ -1216,14 +1253,23 @@ async function loadTransfers() {
 
 function renderTransfers() {
   const list = document.getElementById('transfers-list');
-  if (!activeTransfers.length) {
+
+  // Filter by search + showDone
+  const q = searchQuery.toLowerCase().trim();
+  const visible = activeTransfers.filter(t => {
+    if (!showDone && t.status === 'done') return false;
+    if (q && !(t.item_name || '').toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  if (!visible.length) {
     list.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">✅</div>${i18n('lager.empty')}</div></td></tr>`;
     return;
   }
 
   // Gruppieren nach Expedition
   const groups = {};
-  activeTransfers.forEach(t => {
+  visible.forEach(t => {
     const key = t.expedition_label || 'aktuell';
     if (!groups[key]) groups[key] = [];
     groups[key].push(t);
@@ -1283,6 +1329,31 @@ function renderTransfers() {
       </tr>`;
     }).join('')}
   `).join('');
+}
+
+function onSearchInput(val) {
+  searchQuery = val;
+  renderTransfers();
+}
+
+function toggleShowDone(checked) {
+  showDone = checked;
+  loadTransfers();
+}
+
+async function mergeDuplicates() {
+  if (!confirm(i18n('lager.merge') + '?')) return;
+  try {
+    const result = await api('POST', '/api/transfers/merge-duplicates');
+    if (result.merged > 0) {
+      toast(i18n('lager.merged') + ': ' + result.merged, 'ok');
+      await loadTransfers();
+    } else {
+      toast(i18n('lager.nodups'), 'info');
+    }
+  } catch (err) {
+    toast(err.message, 'err');
+  }
 }
 
 async function returnItem(id) {
