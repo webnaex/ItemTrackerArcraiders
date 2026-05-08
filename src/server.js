@@ -47,7 +47,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.4';
+const APP_VERSION = '1.2.5';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -247,12 +247,23 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
   }
 
   try {
-    const raw = await getFullStash(account, 'de');
+    // Beide Locales parallel laden für bilinguale Itemnamen
+    const [rawDe, rawEn] = await Promise.all([
+      getFullStash(account, 'de'),
+      getFullStash(account, 'en'),
+    ]);
+
+    // EN-Namen per itemId indexieren
+    const enNames = {};
+    rawEn.forEach(item => {
+      const id = item.itemId || item.id || item.item_id;
+      if (id) enNames[id] = item.name;
+    });
 
     // Items normalisieren: itemId → id, icon_url aus CDN ableiten
-    const items = raw.map(item => ({
+    const items = rawDe.map(item => ({
       id: item.itemId || item.id || item.item_id,
-      name: item.name,
+      name: { de: item.name, en: enNames[item.itemId || item.id || item.item_id] || item.name },
       quantity: item.quantity ?? item.qty ?? 0,
       icon_url: `https://cdn.arctracker.io/items/v2/${item.itemId || item.id || item.item_id}.png`,
       type: item.type || item.category || null,
@@ -519,6 +530,30 @@ app.post('/api/transfers/return-all', adminOnly, async (req, res) => {
 });
 
 // ─── Transfer löschen (Admin only) ───────────────────────────────────────────
+// ─── Itemnamen EN backfill (Admin) ───────────────────────────────────────────
+app.post('/api/transfers/backfill-names', adminOnly, async (req, res) => {
+  try {
+    const rawEn = await getFullStash('silverbase', 'en');
+    const enNames = {};
+    rawEn.forEach(item => {
+      const id = item.itemId || item.id || item.item_id;
+      if (id && item.name) enNames[id] = item.name;
+    });
+
+    let updated = 0;
+    for (const [itemId, nameEn] of Object.entries(enNames)) {
+      const { rowCount } = await pool.query(
+        `UPDATE transfers SET item_name_en = $1 WHERE item_id = $2 AND (item_name_en IS NULL OR item_name_en = '')`,
+        [nameEn, itemId]
+      );
+      updated += rowCount;
+    }
+    res.json({ updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Duplikate zusammenführen ─────────────────────────────────────────────────
 app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
   try {

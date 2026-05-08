@@ -923,6 +923,17 @@ function toggleLang() {
   localStorage.setItem('lang', LANG);
   document.getElementById('btn-lang').textContent = LANG === 'de' ? 'EN' : 'DE';
   applyLang();
+  // Einmalig EN-Namen für bestehende Transfers nachladen (Admin only)
+  if (LANG === 'en' && ROLE === 'admin' && !localStorage.getItem('en_backfill_done')) {
+    api('POST', '/api/transfers/backfill-names')
+      .then(r => {
+        if (r.updated > 0) {
+          localStorage.setItem('en_backfill_done', '1');
+          loadTransfers();
+        }
+      })
+      .catch(() => {});
+  }
 }
 
 function applyLang() {
