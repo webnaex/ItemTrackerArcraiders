@@ -576,7 +576,6 @@
             <tr>
               <th style="width:36px"></th>
               <th data-i18n="col.item">ITEM</th>
-              <th style="width:75px" data-i18n="col.status">STATUS</th>
               <th style="width:160px" data-i18n="col.note">NOTIZ</th>
               <th style="width:120px" data-i18n="col.empf">EMPFÄNGER</th>
               <th style="width:70px" data-i18n="col.qty">MENGE</th>
@@ -1211,7 +1210,7 @@ async function loadTransfers() {
 function renderTransfers() {
   const list = document.getElementById('transfers-list');
   if (!activeTransfers.length) {
-    list.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">✅</div>${i18n('lager.empty')}</div></td></tr>`;
+    list.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">✅</div>${i18n('lager.empty')}</div></td></tr>`;
     return;
   }
 
@@ -1240,7 +1239,6 @@ function renderTransfers() {
           <div class="item-name">${tr.item_name || '?'}</div>
           ${tr.item_type ? `<div class="item-meta">${tr.item_type}</div>` : ''}
         </td>
-        <td><span class="status-badge ${statusKey}">${i18n('status.' + statusKey)}</span></td>
         <td>
           <input class="note-input" id="note-${tr.id}"
             value="${(tr.notes || '').replace(/"/g, '&quot;')}"
