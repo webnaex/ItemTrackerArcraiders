@@ -1626,9 +1626,10 @@ function renderAssignUsers() {
       <div style="width:90px;font-family:var(--mono);color:${u.color};font-size:13px;">${u.label}</div>
       <button onclick="adjustAssign('${u.account}',-1)"
         style="width:30px;height:30px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:16px;cursor:pointer;line-height:1;">−</button>
-      <div id="assign-qty-${u.account}"
-        style="min-width:36px;text-align:center;font-family:var(--mono);font-size:18px;font-weight:700;color:var(--text);">
-        ${assignQtys[u.account]}</div>
+      <input id="assign-qty-${u.account}" type="number" min="0" max="${assignPopupTotal}" value="${assignQtys[u.account]}"
+        oninput="setAssignQty('${u.account}', this)"
+        style="width:56px;text-align:center;font-family:var(--mono);font-size:18px;font-weight:700;
+               color:var(--text);background:var(--bg3);border:1px solid var(--border2);padding:3px 4px;outline:none;">
       <button onclick="adjustAssign('${u.account}',1)"
         style="width:30px;height:30px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:16px;cursor:pointer;line-height:1;">+</button>
     </div>
@@ -1640,7 +1641,16 @@ function adjustAssign(account, delta) {
   const maxVal   = assignPopupTotal - otherSum;
   assignQtys[account] = Math.max(0, Math.min((assignQtys[account]||0) + delta, maxVal));
   const el = document.getElementById('assign-qty-' + account);
-  if (el) el.textContent = assignQtys[account];
+  if (el) el.value = assignQtys[account];
+  updateAssignTotal();
+}
+
+function setAssignQty(account, input) {
+  const otherSum = Object.entries(assignQtys).filter(([a]) => a !== account).reduce((s,[,v]) => s+v, 0);
+  const maxVal = assignPopupTotal - otherSum;
+  const val = Math.max(0, Math.min(parseInt(input.value) || 0, maxVal));
+  assignQtys[account] = val;
+  input.value = val;
   updateAssignTotal();
 }
 
