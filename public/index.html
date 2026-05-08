@@ -753,6 +753,8 @@ const T = {
     // Lager
     'lager.title':   'Lager Bestand',
     'lager.empty':   'Keine offenen Transfers.',
+    'stash.reserved':  'bereits im Lager',
+    'stash.unavail':   'nicht verfügbar',
     'lager.search':  'Suchen...',
     'lager.showdone': 'Erledigte',
     'lager.merge':   'Duplikate zusammenführen',
@@ -846,6 +848,8 @@ const T = {
     // Lager
     'lager.title':    'Stock Inventory',
     'lager.empty':    'No open transfers.',
+    'stash.reserved':  'already in storage',
+    'stash.unavail':   'unavailable',
     'lager.search':  'Search...',
     'lager.showdone': 'Completed',
     'lager.merge':   'Merge duplicates',
@@ -969,6 +973,7 @@ let stashItems = [];
 let filteredItems = [];
 let selection = {}; // { itemId: { item, qty } }
 let activeTransfers = [];
+let reservedQtys = {}; // item_id → reserved quantity (pending transfers)
 let showDone = false;
 let searchQuery = '';
 let autoRefreshTimer = null;
@@ -1117,6 +1122,16 @@ async function loadStash() {
     sel.innerHTML = '<option value="" data-i18n="stash.all_types">Alle Typen</option>';
     types.forEach(t => sel.innerHTML += `<option value="${t}">${t}</option>`);
 
+    // Pending Transfers laden um reservierte Mengen zu berechnen
+    try {
+      const tx = await api('GET', '/api/transfers');
+      // reserved: item_id → summe der pending/partial Mengen
+      reservedQtys = {};
+      tx.filter(t => t.status !== 'done').forEach(t => {
+        if (t.item_id) reservedQtys[t.item_id] = (reservedQtys[t.item_id] || 0) + (t.quantity_transferred || 0);
+      });
+    } catch (_) { reservedQtys = {}; }
+
     filteredItems = [...stashItems];
     renderStash();
     toast(`${stashItems.length} Items geladen`, 'ok');
@@ -1150,20 +1165,30 @@ function renderStash() {
   list.innerHTML = filteredItems.map(item => {
     const id = item.id || item.item_id;
     const name = sName(item);
-    const qty = item.quantity ?? item.qty ?? 0;
+    const stashQty = item.quantity ?? item.qty ?? 0;
+    const reserved = reservedQtys[id] || 0;
+    const availQty = Math.max(0, stashQty - reserved);
     const type = item.type || item.item_type || '';
     const icon = item.icon_url || item.icon || '';
     const sel = selection[id];
+    const unavail = availQty === 0 && !sel;
 
-    return `<div class="item-row ${sel ? 'selected' : ''}" onclick="toggleItem('${id}')">
+    return `<div class="item-row ${sel ? 'selected' : ''} ${unavail ? 'item-unavail' : ''}"
+      onclick="${unavail ? '' : `toggleItem('${id}')`}"
+      style="${unavail ? 'opacity:0.4;cursor:not-allowed;' : ''}">
       ${icon
         ? `<img class="item-icon" src="${icon}" alt="" onerror="this.style.display='none'">`
         : `<div class="item-icon-placeholder">📦</div>`}
       <div class="item-info">
         <div class="item-name">${name}</div>
-        <div class="item-meta">${type}${type && id ? ' · ' : ''}${id || ''}</div>
+        <div class="item-meta">${unavail
+          ? `<span style="color:var(--warn);">⚠ ${i18n('stash.reserved')}</span>`
+          : `${type}${type && id ? ' · ' : ''}${id || ''}`
+        }</div>
       </div>
-      <div class="item-qty">${qty}</div>
+      <div class="item-qty" style="${unavail ? 'color:var(--danger);' : reserved > 0 ? 'color:var(--warn);' : ''}">
+        ${reserved > 0 ? `<span style="font-size:10px;color:var(--text-muted);">${stashQty}−${reserved}=</span> ` : ''}${availQty}
+      </div>
     </div>`;
   }).join('');
 }
@@ -1172,11 +1197,15 @@ function toggleItem(id) {
   const item = filteredItems.find(i => (i.id || i.item_id) === id);
   if (!item) return;
 
+  const reserved = reservedQtys[id] || 0;
+  const stashQty = item.quantity ?? item.qty ?? 0;
+  const availQty = Math.max(0, stashQty - reserved);
+  if (availQty === 0 && !selection[id]) return; // nicht verfügbar
+
   if (selection[id]) {
     delete selection[id];
   } else {
-    const qty = item.quantity ?? item.qty ?? 1;
-    selection[id] = { item, qty };
+    selection[id] = { item, qty: availQty };
   }
   renderStash();
   renderSelection();
@@ -1198,7 +1227,8 @@ function renderSelection() {
   list.innerHTML = entries.map(({ item, qty }) => {
     const id = item.id || item.item_id;
     const name = sName(item);
-    const max = item.quantity ?? item.qty ?? 999;
+    const reserved = reservedQtys[id] || 0;
+    const max = Math.max(1, (item.quantity ?? item.qty ?? 999) - reserved);
 
     return `<div class="selection-item">
       <div class="item-info" style="flex:1;min-width:0;">
