@@ -46,6 +46,20 @@ app.get('/api/settings/public', async (req, res) => {
   }
 });
 
+// ─── Version (public) ────────────────────────────────────────────────────────
+app.get('/api/version', (req, res) => {
+  const sha = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || 'dev';
+  const ts  = process.env.RAILWAY_GIT_COMMIT_TIMESTAMP || null;
+  res.json({ version: sha, timestamp: ts });
+});
+
+// ─── Version (public) ────────────────────────────────────────────────────────
+app.get('/api/version', (req, res) => {
+  const sha = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || 'dev';
+  const ts  = process.env.RAILWAY_GIT_COMMIT_TIMESTAMP || null;
+  res.json({ version: sha, timestamp: ts });
+});
+
 // ─── Auth Endpoint (vor Middleware!) ──────────────────────────────────────────
 app.post('/api/auth', async (req, res) => {
   const { password } = req.body;
