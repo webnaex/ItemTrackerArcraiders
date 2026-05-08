@@ -1111,7 +1111,12 @@ async function loadStash() {
 
   try {
     const data = await api('GET', '/api/stash/silverbase');
-    stashItems = data.items || [];
+    // Alphabetisch sortieren → gleiche/ähnliche Namen landen nebeneinander
+    stashItems = (data.items || []).sort((a, b) => {
+      const na = (a.name?.de || a.name?.en || a.name || '').toLowerCase();
+      const nb = (b.name?.de || b.name?.en || b.name || '').toLowerCase();
+      return na.localeCompare(nb, 'de');
+    });
     document.getElementById('stash-meta').textContent = `${stashItems.length} ${i18n('stash.items')}`;
     document.getElementById('api-status').textContent = i18n('api.ok');
     document.getElementById('api-status').className = 'status-pill ok';
@@ -1151,6 +1156,11 @@ function filterStash() {
     const matchQ = !q || name.includes(q);
     const matchT = !type || (item.type || item.item_type || '') === type;
     return matchQ && matchT;
+  });
+  filteredItems.sort((a, b) => {
+    const na = sName(a).toLowerCase();
+    const nb = sName(b).toLowerCase();
+    return na.localeCompare(nb, 'de');
   });
   renderStash();
 }
