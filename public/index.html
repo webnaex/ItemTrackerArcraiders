@@ -1111,8 +1111,21 @@ async function loadStash() {
 
   try {
     const data = await api('GET', '/api/stash/silverbase');
-    // Alphabetisch sortieren → gleiche/ähnliche Namen landen nebeneinander
-    stashItems = (data.items || []).sort((a, b) => {
+    // Gleiche Item-Typen (selbe itemId) zu einem Eintrag zusammenführen
+    const rawItems = data.items || [];
+    const merged = {};
+    rawItems.forEach(item => {
+      const id = item.id || item.item_id;
+      if (!id) return;
+      if (merged[id]) {
+        merged[id].quantity = (merged[id].quantity ?? 0) + (item.quantity ?? item.qty ?? 0);
+      } else {
+        merged[id] = { ...item, quantity: item.quantity ?? item.qty ?? 0 };
+      }
+    });
+
+    // Alphabetisch sortieren → ähnliche Namen nebeneinander
+    stashItems = Object.values(merged).sort((a, b) => {
       const na = (a.name?.de || a.name?.en || a.name || '').toLowerCase();
       const nb = (b.name?.de || b.name?.en || b.name || '').toLowerCase();
       return na.localeCompare(nb, 'de');
