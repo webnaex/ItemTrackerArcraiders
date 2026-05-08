@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.16';
+const APP_VERSION = '1.2.17';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -322,6 +322,14 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
 
   try {
     const inserted = [];
+    // Aktuell reservierte Mengen pro item_id laden
+    const { rows: reservedRows } = await pool.query(
+      `SELECT item_id, SUM(quantity_transferred) AS reserved
+       FROM transfers WHERE status NOT IN ('done','deleted') GROUP BY item_id`
+    );
+    const reservedMap = {};
+    reservedRows.forEach(r => { reservedMap[r.item_id] = parseInt(r.reserved); });
+
     for (const item of items) {
       // Per-Item to_account hat Vorrang vor Body-Level to_account
       const target = validToAccounts.includes(item.to_account)

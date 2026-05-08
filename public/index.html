@@ -1349,7 +1349,12 @@ function renderSelection() {
 
 function updateQty(id, val) {
   if (selection[id]) {
-    selection[id].qty = Math.max(1, parseInt(val) || 1);
+    const item = selection[id].item;
+    const itemId = item.id || item.item_id;
+    const reserved = reservedQtys[itemId] || 0;
+    const stashQty = item.quantity ?? item.qty ?? 999;
+    const maxAvail = Math.max(1, stashQty - reserved);
+    selection[id].qty = Math.max(1, Math.min(parseInt(val) || 1, maxAvail));
   }
 }
 
@@ -1378,6 +1383,8 @@ async function confirmTransfer() {
   try {
     await api('POST', '/api/transfers', { expedition_label, to_account: 'silverbase', items });
     selection = {};
+    // Reservierte Mengen sofort neu berechnen → verhindert Doppel-Transfer
+    await refreshReservedQtys();
     renderStash();
     renderSelection();
     toast(`${items.length} ${i18n('transfer.ok')}`, 'ok');
@@ -1385,6 +1392,17 @@ async function confirmTransfer() {
   } catch (err) {
     toast(err.message, 'err');
   }
+}
+
+// Reservierte Mengen aus aktiven Transfers neu laden
+async function refreshReservedQtys() {
+  try {
+    const tx = await api('GET', '/api/transfers');
+    reservedQtys = {};
+    tx.filter(t => t.status !== 'done' && t.status !== 'deleted').forEach(t => {
+      if (t.item_id) reservedQtys[t.item_id] = (reservedQtys[t.item_id] || 0) + (t.quantity_transferred || 0);
+    });
+  } catch (_) {}
 }
 
 // ── Transfers ──────────────────────────────────────────────────────────────
