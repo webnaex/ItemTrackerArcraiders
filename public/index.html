@@ -580,6 +580,8 @@
               <th style="width:160px" data-i18n="col.note">NOTIZ</th>
               <th style="width:120px" data-i18n="col.empf">EMPFÄNGER</th>
               <th style="width:70px" data-i18n="col.qty">MENGE</th>
+              <th style="width:85px" data-i18n="col.created">EINGEBRACHT</th>
+              <th style="width:90px" data-i18n="col.returned">ZURÜCKGEGEBEN</th>
               <th style="width:110px" data-i18n="col.action">AKTION</th>
             </tr>
           </thead>
@@ -606,11 +608,12 @@
               <th style="width:120px">EXPEDITION</th>
               <th style="width:110px">EMPFÄNGER</th>
               <th style="width:70px">MENGE</th>
-              <th style="width:110px">DATUM</th>
+              <th style="width:85px">EINGEBRACHT</th>
+              <th style="width:90px">ZURÜCKGEGEBEN</th>
             </tr>
           </thead>
           <tbody id="history-list">
-            <tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div><span data-i18n="history.empty">Klick auf "Laden"</span></div></td></tr>
+            <tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div><span data-i18n="history.empty">Klick auf "Laden"</span></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -764,6 +767,8 @@ const T = {
     'col.note':       'NOTIZ',
     'col.empf':       'EMPFÄNGER',
     'col.qty':        'MENGE',
+    'col.created':    'EINGEBRACHT',
+    'col.returned':   'ZURÜCKGEGEBEN',
     'col.action':     'AKTION',
     // Admin Settings
     'admin.settings_title': '⚙ App-Einstellungen',
@@ -849,6 +854,8 @@ const T = {
     'col.note':       'NOTE',
     'col.empf':       'RECIPIENT',
     'col.qty':        'QTY',
+    'col.created':    'CREATED',
+    'col.returned':   'RETURNED',
     'col.action':     'ACTION',
     // Admin Settings
     'admin.settings_title': '⚙ App Settings',
@@ -1204,7 +1211,7 @@ async function loadTransfers() {
 function renderTransfers() {
   const list = document.getElementById('transfers-list');
   if (!activeTransfers.length) {
-    list.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">✅</div>${i18n('lager.empty')}</div></td></tr>`;
+    list.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">✅</div>${i18n('lager.empty')}</div></td></tr>`;
     return;
   }
 
@@ -1249,6 +1256,12 @@ function renderTransfers() {
           <span style="color:var(--text-dim);">${returned}</span>
           <span style="color:var(--border2);margin:0 2px;">/</span>
           <span style="color:var(--warn);">${total}</span>
+        </td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--text-dim);white-space:nowrap;">
+          ${tr.created_at ? new Date(tr.created_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—'}
+        </td>
+        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${tr.returned_at ? 'color:var(--ok);' : 'color:var(--text-muted);'}">
+          ${tr.returned_at ? new Date(tr.returned_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—'}
         </td>
         <td>
           ${!done
@@ -1333,12 +1346,12 @@ async function deleteTransfer(id) {
 // ── History ────────────────────────────────────────────────────────────────
 async function loadHistory() {
   const list = document.getElementById('history-list');
-  list.innerHTML = `<tr><td colspan="7"><div class="loading-row"><div class="spinner"></div>Lade History …</div></td></tr>`;
+  list.innerHTML = `<tr><td colspan="8"><div class="loading-row"><div class="spinner"></div>Lade History …</div></td></tr>`;
 
   try {
     const data = await api('GET', '/api/transfers/history');
     if (!data.length) {
-      list.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div>Noch keine Transfers.</div></td></tr>`;
+      list.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">📋</div>Noch keine Transfers.</div></td></tr>`;
       return;
     }
 
@@ -1368,7 +1381,10 @@ async function loadHistory() {
           <span style="color:var(--border2);margin:0 2px;">/</span>
           <span style="color:var(--warn);">${t.quantity_transferred}</span>
         </td>
-        <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim);white-space:nowrap;">${date}</td>
+        <td style="font-family:var(--mono);font-size:10px;color:var(--text-dim);white-space:nowrap;">${date}</td>
+        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${t.returned_at ? 'color:var(--ok);' : 'color:var(--text-muted);'}">
+          ${t.returned_at ? new Date(t.returned_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—'}
+        </td>
       </tr>`;
     }).join('');
   } catch (err) {
