@@ -1487,19 +1487,19 @@ async function setUserLang(account, lang) {
 }
 
 // ── EMPFÄNGER Spalte ──────────────────────────────────────────────────────
-function renderEmpfaenger(t) {
-  const isPool = !t.to_account || t.to_account === 'silverbase' || t.to_account === 'unassigned';
-  const total = t.quantity_transferred;
-  const name  = (t.item_name || '').replace(/'/g, "\'");
+function renderEmpfaenger(tr) {
+  const isPool = !tr.to_account || tr.to_account === 'silverbase' || tr.to_account === 'unassigned';
+  const total = tr.quantity_transferred;
+  const name  = (tr.item_name || '').replace(/'/g, "\'");
   if (isPool) {
-    return `<button onclick="openAssignPopup(${t.id},'${name}',${total},'silverbase')"
+    return `<button onclick="openAssignPopup(${tr.id},'${name}',${total},'silverbase')"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
              padding:4px 10px;background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0;">
       ${t('lager.zuteilen')}</button>`;
   }
-  const color = t.to_account === 'consta' ? 'var(--accent)' : 'var(--warn)';
-  return `<div onclick="openAssignPopup(${t.id},'${name}',${total},'${t.to_account}')" style="cursor:pointer;flex-shrink:0;">
-    <span class="tag" style="color:${color};border-color:${color};">${t.to_account} ×${total}</span>
+  const color = tr.to_account === 'consta' ? 'var(--accent)' : 'var(--warn)';
+  return `<div onclick="openAssignPopup(${tr.id},'${name}',${total},'${tr.to_account}')" style="cursor:pointer;flex-shrink:0;">
+    <span class="tag" style="color:${color};border-color:${color};">${tr.to_account} ×${total}</span>
   </div>`;
 }
 
