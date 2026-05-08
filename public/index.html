@@ -840,11 +840,11 @@ function toggleLang() {
 function applyLang() {
   // data-i18n Elemente
   document.querySelectorAll('[data-i18n]').forEach(el => {
-    el.textContent = t(el.dataset.i18n);
+    el.textContent = i18n(el.dataset.i18n);
   });
   // Placeholders
   document.querySelectorAll('[data-i18n-ph]').forEach(el => {
-    el.placeholder = t(el.dataset.i18nPh);
+    el.placeholder = i18n(el.dataset.i18nPh);
   });
   // API-Status Pill (nur wenn noch nicht angemeldet oder BEREIT)
   const pill = document.getElementById('api-status');
@@ -876,8 +876,8 @@ let activeTransfers = [];
   }
   document.getElementById('btn-lang').textContent = LANG === 'de' ? 'EN' : 'DE';
   // Login-Screen Texte sofort übersetzen
-  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
-  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = i18n(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = i18n(el.dataset.i18nPh); });
 })();
 
 // ── Auth ───────────────────────────────────────────────────────────────────
