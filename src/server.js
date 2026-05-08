@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.17';
+const APP_VERSION = '1.2.18';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -674,6 +674,16 @@ app.post('/api/transfers/:id/restore', adminOnly, async (req, res) => {
       [req.params.id]
     );
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Gelöschte Transfers permanent entfernen ─────────────────────────────────
+app.delete('/api/admin/transfers/deleted', adminOnly, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(`DELETE FROM transfers WHERE status = 'deleted'`);
+    res.json({ removed: rowCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -608,6 +608,7 @@
         <div class="panel-header">
           <div class="panel-title">Transfer History</div>
           <button class="btn btn-outline btn-sm" onclick="loadHistory()" style="margin-left:auto;" data-i18n="history.load_btn">↻ Laden</button>
+          <button class="btn btn-outline btn-sm" onclick="purgeDeleted()" style="margin-left:8px;color:var(--danger);border-color:var(--danger);">🧹 Gelöschte</button>
           <button class="btn btn-danger btn-sm" onclick="resetAllTransfers()" style="margin-left:8px;">🗑 Reset</button>
         </div>
         <table class="transfers-table">
@@ -1824,6 +1825,17 @@ async function loadAdminUsers() {
     `).join('');
   } catch (err) {
     list.innerHTML = `<div class="empty-state" style="color:var(--danger)">${err.message}</div>`;
+  }
+}
+
+async function purgeDeleted() {
+  if (!confirm('Alle DELETED-Einträge dauerhaft aus der History entfernen?')) return;
+  try {
+    const r = await api('DELETE', '/api/admin/transfers/deleted');
+    toast(`${r.removed} Einträge bereinigt ✓`, 'ok');
+    loadHistory();
+  } catch (err) {
+    toast(err.message, 'err');
   }
 }
 
