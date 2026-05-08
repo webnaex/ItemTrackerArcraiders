@@ -1162,38 +1162,38 @@ function renderTransfers() {
 
   list.innerHTML = Object.entries(groups).map(([label, transfers]) => `
     <div class="section-label">// ${label}</div>
-    ${transfers.map(t => {
-      const done = t.status === 'done';
-      const statusClass = t.status === 'partial' ? 'partial' : (done ? 'done' : 'pending');
-      const returned = t.quantity_returned || 0;
-      const total = t.quantity_transferred;
+    ${transfers.map(tr => {
+      const done = tr.status === 'done';
+      const statusClass = tr.status === 'partial' ? 'partial' : (done ? 'done' : 'pending');
+      const returned = tr.quantity_returned || 0;
+      const total = tr.quantity_transferred;
 
       return `<div class="transfer-row ${done ? 'done' : ''}">
         <div class="transfer-status ${statusClass}"></div>
-        ${t.icon_url
-          ? `<img class="item-icon" src="${t.icon_url}" alt="" onerror="this.style.display='none'">`
+        ${tr.icon_url
+          ? `<img class="item-icon" src="${tr.icon_url}" alt="" onerror="this.style.display='none'">`
           : `<div class="item-icon-placeholder">📦</div>`}
         <div class="item-info" style="flex:1;min-width:0;">
-          <div class="item-name">${t.item_name || '?'}</div>
-          <div class="item-meta">${t.from_account || 'silverbase'}${t.item_type ? ' · ' + t.item_type : ''}</div>
+          <div class="item-name">${tr.item_name || '?'}</div>
+          <div class="item-meta">${tr.from_account || 'silverbase'}${tr.item_type ? ' · ' + tr.item_type : ''}</div>
         </div>
-        <input class="note-input" id="note-${t.id}"
-          value="${(t.notes || '').replace(/"/g, '&quot;')}"
+        <input class="note-input" id="note-${tr.id}"
+          value="${(tr.notes || '').replace(/"/g, '&quot;')}"
           placeholder="${window._t('note.placeholder')}"
           ${ROLE === 'view' ? 'readonly' : ''}
-          onblur="saveNote(${t.id}, this.value)"
+          onblur="saveNote(${tr.id}, this.value)"
           onkeydown="if(event.key==='Enter'){this.blur();}"
           onclick="event.stopPropagation()">
-        ${ROLE === 'admin' && !done ? renderEmpfaenger(t) : ''}
+        ${ROLE === 'admin' && !done ? renderEmpfaenger(tr) : ''}
         <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);white-space:nowrap;margin-right:12px;">
           <span class="num">${returned}</span> / <span style="color:var(--warn)">${total}</span>
         </div>
         ${!done ? `
         ${ROLE !== 'view' ? `
         <input class="qty-input" type="number" min="1" max="${total}" value="${total}"
-          id="ret-qty-${t.id}" style="width:56px;" onclick="event.stopPropagation()">
-        <button class="btn btn-ok btn-sm" onclick="returnItem(${t.id})">✓</button>
-        ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${t.id})">✕</button>` : ''}
+          id="ret-qty-${tr.id}" style="width:56px;" onclick="event.stopPropagation()">
+        <button class="btn btn-ok btn-sm" onclick="returnItem(${tr.id})">✓</button>
+        ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>` : ''}
         ` : `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">⟳ ${total}</span>`}
         ` : `<span class="tag">${t("status.done")}</span>`}
       </div>`;
