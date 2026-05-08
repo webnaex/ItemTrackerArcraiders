@@ -283,26 +283,50 @@
   }
 
   /* ── NACH RESET Page ── */
-  #page-nach { flex-direction: column; gap: 20px; }
-  #page-nach .top-bar {
-    display: flex; align-items: center; gap: 12px;
-  }
-  #page-nach .panel-transfers { flex: 1; }
+  #page-nach { flex-direction: column; gap: 16px; }
+  #page-nach .top-bar { display: flex; align-items: center; gap: 12px; }
 
   /* ── Transfer Table ── */
-  .transfer-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 18px; border-bottom: 1px solid var(--border);
-    transition: background 0.15s;
+  .transfers-table { width: 100%; border-collapse: collapse; }
+  .transfers-table th {
+    padding: 7px 12px; text-align: left; font-family: var(--mono);
+    font-size: 10px; color: var(--text-muted); letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border); background: var(--bg3);
+    font-weight: 600; white-space: nowrap;
   }
-  .transfer-row.done { opacity: 0.45; }
-  .transfer-row:hover { background: var(--bg3); }
-  .transfer-status {
-    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  .transfers-table td {
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+    vertical-align: middle;
   }
-  .transfer-status.pending { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
-  .transfer-status.partial { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
-  .transfer-status.done { background: var(--ok); }
+  .transfers-table tbody tr:hover td { background: var(--bg3); }
+  .transfers-table tbody tr.tr-done td { opacity: 0.4; }
+  .tr-section td {
+    padding: 6px 12px; font-family: var(--mono); font-size: 10px;
+    color: var(--text-muted); letter-spacing: 0.12em;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .status-badge {
+    font-family: var(--mono); font-size: 10px; padding: 2px 8px;
+    border: 1px solid; border-radius: 2px; white-space: nowrap; letter-spacing: 0.06em;
+  }
+  .status-badge.pending { color: var(--warn); border-color: var(--warn); background: rgba(255,170,0,0.08); }
+  .status-badge.partial { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+  .status-badge.done { color: var(--ok); border-color: var(--ok); background: rgba(0,200,100,0.08); }
+  .empf-user-pill {
+    display: flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 11px; white-space: nowrap;
+    margin-bottom: 3px;
+  }
+  .empf-user-pill:last-child { margin-bottom: 0; }
+  .empf-avatar {
+    width: 15px; height: 15px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; flex-shrink: 0;
+  }
+  .empf-avatar.consta { background: var(--accent-dim); color: var(--accent); }
+  .empf-avatar.junez { background: rgba(255,170,0,0.15); color: var(--warn); }
+  .empf-name.consta { color: var(--accent); }
+  .empf-name.junez { color: var(--warn); }
 
   /* ── History Page ── */
   #page-history { flex-direction: column; }
@@ -425,8 +449,8 @@
     .tab { padding: 0 10px; font-size: 11px; letter-spacing: 0.04em; }
 
     /* Transfer Rows: schmaler */
-    .transfer-row { padding: 10px 10px; gap: 8px; flex-wrap: wrap; }
-    .item-icon, .item-icon-placeholder { width: 32px; height: 32px; }
+    .transfers-table th, .transfers-table td { padding: 6px 8px; }
+    .item-icon, .item-icon-placeholder { width: 28px; height: 28px; }
     .item-info { min-width: 0; }
     .item-name { font-size: 13px; }
 
@@ -546,13 +570,23 @@
         <div class="panel-title" style="font-family:var(--head);font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;" data-i18n="lager.title">Offene Transfers</div>
         <button class="btn btn-outline btn-sm" onclick="loadTransfers()" style="margin-left:auto;">↻</button>
       </div>
-      <div class="panel" style="flex:1;">
-        <div class="panel-body" id="transfers-list">
-          <div class="empty-state">
-            <div class="icon">✅</div>
-            Keine offenen Transfers.
-          </div>
-        </div>
+      <div class="panel" style="flex:1;overflow:auto;">
+        <table class="transfers-table">
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th data-i18n="col.item">ITEM</th>
+              <th style="width:75px" data-i18n="col.status">STATUS</th>
+              <th style="width:160px" data-i18n="col.note">NOTIZ</th>
+              <th style="width:120px" data-i18n="col.empf">EMPFÄNGER</th>
+              <th style="width:70px" data-i18n="col.qty">MENGE</th>
+              <th style="width:110px" data-i18n="col.action">AKTION</th>
+            </tr>
+          </thead>
+          <tbody id="transfers-list">
+            <tr><td colspan="7"><div class="empty-state"><div class="icon">✅</div>Keine offenen Transfers.</div></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -712,9 +746,15 @@ const T = {
     'admin.pw_del':   'Passwort gelöscht',
     'admin.confirm_del': 'Passwort für {a} löschen? Der Account kann sich dann nicht mehr einloggen.',
     // Status
-    'status.pending': 'PENDING',
-    'status.partial': 'PARTIAL',
-    'status.done':    'DONE',
+    'status.pending': 'OFFEN',
+    'status.partial': 'TEILW.',
+    'status.done':    'ERLEDIGT',
+    'col.item':       'ITEM',
+    'col.status':     'STATUS',
+    'col.note':       'NOTIZ',
+    'col.empf':       'EMPFÄNGER',
+    'col.qty':        'MENGE',
+    'col.action':     'AKTION',
     // Admin Settings
     'admin.settings_title': '⚙ App-Einstellungen',
     'admin.backup_title':   '💾 Snapshots / Backup',
@@ -791,9 +831,15 @@ const T = {
     'admin.pw_del':   'Password deleted',
     'admin.confirm_del': 'Delete password for {a}? The account will no longer be able to log in.',
     // Status
-    'status.pending': 'PENDING',
-    'status.partial': 'PARTIAL',
+    'status.pending': 'OPEN',
+    'status.partial': 'PART.',
     'status.done':    'DONE',
+    'col.item':       'ITEM',
+    'col.status':     'STATUS',
+    'col.note':       'NOTE',
+    'col.empf':       'RECIPIENT',
+    'col.qty':        'QTY',
+    'col.action':     'ACTION',
     // Admin Settings
     'admin.settings_title': '⚙ App Settings',
     'admin.backup_title':   '💾 Snapshots / Backup',
@@ -1148,7 +1194,7 @@ async function loadTransfers() {
 function renderTransfers() {
   const list = document.getElementById('transfers-list');
   if (!activeTransfers.length) {
-    list.innerHTML = `<div class="empty-state"><div class="icon">✅</div>${i18n('lager.empty')}</div>`;
+    list.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">✅</div>${i18n('lager.empty')}</div></td></tr>`;
     return;
   }
 
@@ -1161,42 +1207,52 @@ function renderTransfers() {
   });
 
   list.innerHTML = Object.entries(groups).map(([label, transfers]) => `
-    <div class="section-label">// ${label}</div>
+    <tr class="tr-section"><td colspan="7">// ${label}</td></tr>
     ${transfers.map(tr => {
       const done = tr.status === 'done';
-      const statusClass = tr.status === 'partial' ? 'partial' : (done ? 'done' : 'pending');
+      const statusKey = tr.status === 'partial' ? 'partial' : (done ? 'done' : 'pending');
       const returned = tr.quantity_returned || 0;
       const total = tr.quantity_transferred;
-
-      return `<div class="transfer-row ${done ? 'done' : ''}">
-        <div class="transfer-status ${statusClass}"></div>
-        ${tr.icon_url
-          ? `<img class="item-icon" src="${tr.icon_url}" alt="" onerror="this.style.display='none'">`
-          : `<div class="item-icon-placeholder">📦</div>`}
-        <div class="item-info" style="flex:1;min-width:0;">
+      return `<tr class="${done ? 'tr-done' : ''}">
+        <td style="padding:6px 8px;">
+          ${tr.icon_url
+            ? `<img class="item-icon" src="${tr.icon_url}" alt="" onerror="this.style.display='none'">`
+            : `<div class="item-icon-placeholder">📦</div>`}
+        </td>
+        <td>
           <div class="item-name">${tr.item_name || '?'}</div>
-          <div class="item-meta">${tr.from_account || 'silverbase'}${tr.item_type ? ' · ' + tr.item_type : ''}</div>
-        </div>
-        <input class="note-input" id="note-${tr.id}"
-          value="${(tr.notes || '').replace(/"/g, '&quot;')}"
-          placeholder="${window._t('note.placeholder')}"
-          ${ROLE === 'view' ? 'readonly' : ''}
-          onblur="saveNote(${tr.id}, this.value)"
-          onkeydown="if(event.key==='Enter'){this.blur();}"
-          onclick="event.stopPropagation()">
-        ${ROLE === 'admin' && !done ? renderEmpfaenger(tr) : ''}
-        <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);white-space:nowrap;margin-right:12px;">
-          <span class="num">${returned}</span> / <span style="color:var(--warn)">${total}</span>
-        </div>
-        ${!done ? `
-        ${ROLE !== 'view' ? `
-        <input class="qty-input" type="number" min="1" max="${total}" value="${total}"
-          id="ret-qty-${tr.id}" style="width:56px;" onclick="event.stopPropagation()">
-        <button class="btn btn-ok btn-sm" onclick="returnItem(${tr.id})">✓</button>
-        ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>` : ''}
-        ` : `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">⟳ ${total}</span>`}
-        ` : `<span class="tag">${i18n("status.done")}</span>`}
-      </div>`;
+          ${tr.item_type ? `<div class="item-meta">${tr.item_type}</div>` : ''}
+        </td>
+        <td><span class="status-badge ${statusKey}">${i18n('status.' + statusKey)}</span></td>
+        <td>
+          <input class="note-input" id="note-${tr.id}"
+            value="${(tr.notes || '').replace(/"/g, '&quot;')}"
+            placeholder="${window._t('note.placeholder')}"
+            ${ROLE === 'view' ? 'readonly' : ''}
+            onblur="saveNote(${tr.id}, this.value)"
+            onkeydown="if(event.key==='Enter'){this.blur();}"
+            onclick="event.stopPropagation()"
+            style="width:100%;min-width:0;">
+        </td>
+        <td>${ROLE === 'admin' ? renderEmpfaenger(tr) : ''}</td>
+        <td style="font-family:var(--mono);font-size:13px;white-space:nowrap;">
+          <span style="color:var(--text-dim);">${returned}</span>
+          <span style="color:var(--border2);margin:0 2px;">/</span>
+          <span style="color:var(--warn);">${total}</span>
+        </td>
+        <td>
+          ${!done
+            ? (ROLE !== 'view'
+                ? `<div style="display:flex;align-items:center;gap:5px;">
+                    <input class="qty-input" type="number" min="1" max="${total}" value="${total}"
+                      id="ret-qty-${tr.id}" style="width:48px;" onclick="event.stopPropagation()">
+                    <button class="btn btn-ok btn-sm" onclick="returnItem(${tr.id})">✓</button>
+                    ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>` : ''}
+                  </div>`
+                : `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">⟳ ${total}</span>`)
+            : `<span class="status-badge done">${i18n('status.done')}</span>`}
+        </td>
+      </tr>`;
     }).join('')}
   `).join('');
 }
@@ -1494,12 +1550,14 @@ function renderEmpfaenger(tr) {
   if (isPool) {
     return `<button onclick="openAssignPopup(${tr.id},'${name}',${total},'silverbase')"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
-             padding:4px 10px;background:transparent;cursor:pointer;white-space:nowrap;flex-shrink:0;">
-      ${i18n('lager.zuteilen')}</button>`;
+             padding:3px 10px;background:transparent;cursor:pointer;white-space:nowrap;border-radius:3px;">
+      + ${i18n('lager.zuteilen')}</button>`;
   }
-  const color = tr.to_account === 'consta' ? 'var(--accent)' : 'var(--warn)';
-  return `<div onclick="openAssignPopup(${tr.id},'${name}',${total},'${tr.to_account}')" style="cursor:pointer;flex-shrink:0;">
-    <span class="tag" style="color:${color};border-color:${color};">${tr.to_account} ×${total}</span>
+  const acct = tr.to_account;
+  const cls = acct === 'consta' ? 'consta' : 'junez';
+  return `<div class="empf-user-pill" onclick="openAssignPopup(${tr.id},'${name}',${total},'${acct}')" style="cursor:pointer;">
+    <span class="empf-avatar ${cls}">👤</span>
+    <span class="empf-name ${cls}">${acct} ×${total}</span>
   </div>`;
 }
 
