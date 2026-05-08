@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.11';
+const APP_VERSION = '1.2.12';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -362,12 +362,12 @@ app.get('/api/transfers', async (req, res) => {
     if (role === 'user') {
       const q = showAll
         ? `SELECT * FROM transfers WHERE to_account = $1 ORDER BY created_at DESC`
-        : `SELECT * FROM transfers WHERE status != 'done' AND to_account = $1 ORDER BY created_at DESC`;
+        : `SELECT * FROM transfers WHERE status NOT IN ('done','deleted') AND to_account = $1 ORDER BY created_at DESC`;
       ({ rows } = await pool.query(q, [account]));
     } else {
       const q = showAll
         ? `SELECT * FROM transfers ORDER BY created_at DESC`
-        : `SELECT * FROM transfers WHERE status != 'done' ORDER BY created_at DESC`;
+        : `SELECT * FROM transfers WHERE status NOT IN ('done','deleted') ORDER BY created_at DESC`;
       ({ rows } = await pool.query(q));
     }
     res.json(rows);
@@ -614,7 +614,11 @@ app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
 
 app.delete('/api/transfers/:id', adminOnly, async (req, res) => {
   try {
-    await pool.query('DELETE FROM transfers WHERE id = $1', [req.params.id]);
+    // Soft-delete: Status auf 'deleted' setzen statt wirklich löschen
+    await pool.query(
+      `UPDATE transfers SET status = 'deleted', deleted_at = NOW() WHERE id = $1`,
+      [req.params.id]
+    );
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -312,6 +312,7 @@
   .status-badge.pending { color: var(--warn); border-color: var(--warn); background: rgba(255,170,0,0.08); }
   .status-badge.partial { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
   .status-badge.done { color: var(--ok); border-color: var(--ok); background: rgba(0,200,100,0.08); }
+  .status-badge.deleted { color: var(--danger); border-color: var(--danger); background: rgba(220,50,50,0.08); text-decoration: line-through; }
   .empf-user-pill {
     display: flex; align-items: center; gap: 5px;
     font-family: var(--mono); font-size: 11px; white-space: nowrap;
@@ -814,6 +815,7 @@ const T = {
     'status.pending': 'OFFEN',
     'status.partial': 'TEILW.',
     'status.done':    'ERLEDIGT',
+    'status.deleted': 'GELÖSCHT',
     'col.item':       'ITEM',
     'col.status':     'STATUS',
     'col.note':       'NOTIZ',
@@ -917,6 +919,7 @@ const T = {
     'status.pending': 'OPEN',
     'status.partial': 'PART.',
     'status.done':    'DONE',
+    'status.deleted': 'DELETED',
     'col.item':       'ITEM',
     'col.status':     'STATUS',
     'col.note':       'NOTE',
@@ -1552,11 +1555,12 @@ async function loadHistory() {
     }
 
     list.innerHTML = data.map(t => {
-      const statusKey = t.status === 'partial' ? 'partial' : (t.status === 'done' ? 'done' : 'pending');
+      const statusKey = t.status === 'deleted' ? 'deleted' : t.status === 'partial' ? 'partial' : (t.status === 'done' ? 'done' : 'pending');
       const date = new Date(t.created_at).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
       const acct = t.to_account && t.to_account !== 'silverbase' && t.to_account !== 'unassigned' ? t.to_account : null;
       const cls = acct === 'consta' ? 'consta' : 'junez';
-      return `<tr class="${t.status === 'done' ? 'tr-done' : ''}">
+      const deletedDate = t.deleted_at ? new Date(t.deleted_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+      return `<tr class="${t.status === 'done' || t.status === 'deleted' ? 'tr-done' : ''}">
         <td style="padding:6px 8px;">
           ${t.icon_url
             ? `<img class="item-icon" src="${t.icon_url}" alt="" onerror="this.style.display='none'">`
@@ -1578,8 +1582,8 @@ async function loadHistory() {
           <span style="color:var(--warn);">${t.quantity_transferred}</span>
         </td>
         <td style="font-family:var(--mono);font-size:10px;color:var(--text-dim);white-space:nowrap;">${date}</td>
-        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${t.returned_at ? 'color:var(--ok);' : 'color:var(--text-muted);'}">
-          ${t.returned_at ? new Date(t.returned_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—'}
+        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${t.status==='deleted' ? 'color:var(--danger);' : t.returned_at ? 'color:var(--ok);' : 'color:var(--text-muted);'}">
+          ${t.status==='deleted' ? deletedDate : t.returned_at ? new Date(t.returned_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—'}
         </td>
       </tr>`;
     }).join('');
