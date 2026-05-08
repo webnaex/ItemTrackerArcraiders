@@ -597,12 +597,22 @@
           <div class="panel-title">Transfer History</div>
           <button class="btn btn-outline btn-sm" onclick="loadHistory()" style="margin-left:auto;" data-i18n="history.load_btn">↻ Laden</button>
         </div>
-        <div class="panel-body" id="history-list">
-          <div class="empty-state">
-            <div class="icon">📋</div>
-            <span data-i18n="history.empty">Klick auf "Laden" um die History anzuzeigen.</span>
-          </div>
-        </div>
+        <table class="transfers-table">
+          <thead>
+            <tr>
+              <th style="width:36px"></th>
+              <th>ITEM</th>
+              <th style="width:75px">STATUS</th>
+              <th style="width:120px">EXPEDITION</th>
+              <th style="width:110px">EMPFÄNGER</th>
+              <th style="width:70px">MENGE</th>
+              <th style="width:110px">DATUM</th>
+            </tr>
+          </thead>
+          <tbody id="history-list">
+            <tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div><span data-i18n="history.empty">Klick auf "Laden"</span></div></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -1323,39 +1333,43 @@ async function deleteTransfer(id) {
 // ── History ────────────────────────────────────────────────────────────────
 async function loadHistory() {
   const list = document.getElementById('history-list');
-  list.innerHTML = `<div class="loading-row"><div class="spinner"></div>Lade History …</div>`;
+  list.innerHTML = `<tr><td colspan="7"><div class="loading-row"><div class="spinner"></div>Lade History …</div></td></tr>`;
 
   try {
     const data = await api('GET', '/api/transfers/history');
     if (!data.length) {
-      list.innerHTML = `<div class="empty-state"><div class="icon">📋</div>Noch keine Transfers.</div>`;
+      list.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">📋</div>Noch keine Transfers.</div></td></tr>`;
       return;
     }
 
     list.innerHTML = data.map(t => {
-      const statusColor = t.status === 'done' ? 'var(--ok)' : (t.status === 'partial' ? 'var(--accent)' : 'var(--warn)');
+      const statusKey = t.status === 'partial' ? 'partial' : (t.status === 'done' ? 'done' : 'pending');
       const date = new Date(t.created_at).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
-      const from = t.from_account || 'silverbase';
-      const to = t.to_account || 'consta';
-      return `<div class="transfer-row">
-        <div class="transfer-status ${t.status}" style="background:${statusColor}"></div>
-        ${t.icon_url
-          ? `<img class="item-icon" src="${t.icon_url}" alt="" onerror="this.style.display='none'">`
-          : `<div class="item-icon-placeholder">📦</div>`}
-        <div class="item-info" style="flex:1;min-width:0;">
+      const acct = t.to_account && t.to_account !== 'silverbase' && t.to_account !== 'unassigned' ? t.to_account : null;
+      const cls = acct === 'consta' ? 'consta' : 'junez';
+      return `<tr class="${t.status === 'done' ? 'tr-done' : ''}">
+        <td style="padding:6px 8px;">
+          ${t.icon_url
+            ? `<img class="item-icon" src="${t.icon_url}" alt="" onerror="this.style.display='none'">`
+            : `<div class="item-icon-placeholder">📦</div>`}
+        </td>
+        <td>
           <div class="item-name">${t.item_name}</div>
-          <div class="item-meta">
-            <span style="color:var(--accent);">${from}</span>
-            <span style="color:var(--text-muted)"> → </span>
-            <span style="color:var(--warn);">${to}</span>
-            <span style="color:var(--text-muted)"> · ${t.expedition_label} · ${date}</span>
-          </div>
-        </div>
-        <div style="font-family:var(--mono);font-size:13px;color:var(--text-dim);white-space:nowrap;">
-          <span class="num">${t.quantity_returned || 0}</span>/<span>${t.quantity_transferred}</span>
-        </div>
-        <span class="tag" style="color:${statusColor};border-color:${statusColor};">${t.status.toUpperCase()}</span>
-      </div>`;
+          ${t.item_type ? `<div class="item-meta">${t.item_type}</div>` : ''}
+        </td>
+        <td><span class="status-badge ${statusKey}">${i18n('status.' + statusKey)}</span></td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim);">${t.expedition_label || '—'}</td>
+        <td>${acct
+          ? `<div class="empf-user-pill"><span class="empf-avatar ${cls}">👤</span><span class="empf-name ${cls}">${acct} ×${t.quantity_transferred}</span></div>`
+          : `<span style="color:var(--text-muted);font-size:11px;">—</span>`}
+        </td>
+        <td style="font-family:var(--mono);font-size:13px;white-space:nowrap;">
+          <span style="color:var(--text-dim);">${t.quantity_returned || 0}</span>
+          <span style="color:var(--border2);margin:0 2px;">/</span>
+          <span style="color:var(--warn);">${t.quantity_transferred}</span>
+        </td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim);white-space:nowrap;">${date}</td>
+      </tr>`;
     }).join('');
   } catch (err) {
     list.innerHTML = `<div class="empty-state" style="color:var(--danger)">${err.message}</div>`;
