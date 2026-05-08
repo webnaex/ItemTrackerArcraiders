@@ -720,6 +720,11 @@ function iName(item) {
   if (LANG === 'en' && item.item_name_en) return item.item_name_en;
   return item.item_name || '?';
 }
+// Returns localised name for stash items (name.de / name.en structure)
+function sName(item) {
+  if (LANG === 'en' && item.name?.en) return item.name.en;
+  return item.name?.de || item.name?.en || item.name || 'Unbekannt';
+}
 
 const T = {
   de: {
@@ -952,6 +957,7 @@ function applyLang() {
   }
   // Dynamische Inhalte neu rendern
   renderSelection();
+  renderStash();
   if (document.getElementById('transfers-list')) renderTransfers();
 }
 
@@ -1126,7 +1132,7 @@ function filterStash() {
   const q = document.getElementById('stash-search').value.toLowerCase();
   const type = document.getElementById('stash-type-filter').value;
   filteredItems = stashItems.filter(item => {
-    const name = (item.name?.de || item.name?.en || item.name || '').toLowerCase();
+    const name = sName(item).toLowerCase();
     const matchQ = !q || name.includes(q);
     const matchT = !type || (item.type || item.item_type || '') === type;
     return matchQ && matchT;
@@ -1143,7 +1149,7 @@ function renderStash() {
 
   list.innerHTML = filteredItems.map(item => {
     const id = item.id || item.item_id;
-    const name = item.name?.de || item.name?.en || item.name || 'Unbekannt';
+    const name = sName(item);
     const qty = item.quantity ?? item.qty ?? 0;
     const type = item.type || item.item_type || '';
     const icon = item.icon_url || item.icon || '';
@@ -1191,7 +1197,7 @@ function renderSelection() {
 
   list.innerHTML = entries.map(({ item, qty }) => {
     const id = item.id || item.item_id;
-    const name = item.name?.de || item.name?.en || item.name || 'Unbekannt';
+    const name = sName(item);
     const max = item.quantity ?? item.qty ?? 999;
 
     return `<div class="selection-item">
