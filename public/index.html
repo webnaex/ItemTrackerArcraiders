@@ -608,8 +608,6 @@
         <div class="panel-header">
           <div class="panel-title">Transfer History</div>
           <button class="btn btn-outline btn-sm" onclick="loadHistory()" style="margin-left:auto;" data-i18n="history.load_btn">↻ Laden</button>
-          <button class="btn btn-outline btn-sm" onclick="purgeDeleted()" style="margin-left:8px;color:var(--danger);border-color:var(--danger);">🧹 Gelöschte</button>
-          <button class="btn btn-danger btn-sm" onclick="resetAllTransfers()" style="margin-left:8px;">🗑 Reset</button>
         </div>
         <table class="transfers-table">
           <thead>
@@ -685,6 +683,7 @@
         </div>
         <div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
           <div style="font-size:13px;color:var(--text-dim);flex:1;">Alle Transfers unwiderruflich löschen (History, Lager, alles).</div>
+          <button class="btn btn-outline btn-sm" onclick="purgeDeleted()" style="color:var(--danger);border-color:var(--danger);">🧹 Gelöschte bereinigen</button>
           <button class="btn btn-danger" onclick="resetAllTransfers()">🗑 Alle Transfers löschen</button>
         </div>
       </div>
