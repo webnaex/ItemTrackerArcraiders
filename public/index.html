@@ -942,7 +942,7 @@ let activeTransfers = [];
     const el = document.getElementById('app-version');
     if (!el) return;
     const date = timestamp ? new Date(timestamp).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'}) : '';
-    el.textContent = 'v' + version + (date ? '  ·  ' + date : '');
+    el.textContent = 'v ' + version + (date ? '  ·  ' + date : '');
   }).catch(() => {});
   // Login-Screen Texte sofort übersetzen
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = i18n(el.dataset.i18n); });
