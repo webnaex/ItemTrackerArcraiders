@@ -47,10 +47,10 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
+const APP_VERSION = '1.2.0';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
-  const sha = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) || 'dev';
-  res.json({ version: sha, timestamp: SERVER_START });
+  res.json({ version: APP_VERSION, timestamp: SERVER_START });
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
