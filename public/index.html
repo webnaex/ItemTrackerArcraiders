@@ -715,6 +715,11 @@
 <script>
 // ── i18n ───────────────────────────────────────────────────────────────────
 let LANG = localStorage.getItem('lang') || 'de';
+// Returns the localised item name based on current LANG
+function iName(item) {
+  if (LANG === 'en' && item.item_name_en) return item.item_name_en;
+  return item.item_name || '?';
+}
 
 const T = {
   de: {
@@ -1258,7 +1263,7 @@ function renderTransfers() {
   const q = searchQuery.toLowerCase().trim();
   const visible = activeTransfers.filter(t => {
     if (!showDone && t.status === 'done') return false;
-    if (q && !(t.item_name || '').toLowerCase().includes(q)) return false;
+    if (q && !iName(t).toLowerCase().includes(q) && !(t.item_name || '').toLowerCase().includes(q)) return false;
     return true;
   });
 
@@ -1289,7 +1294,7 @@ function renderTransfers() {
             : `<div class="item-icon-placeholder">📦</div>`}
         </td>
         <td>
-          <div class="item-name">${tr.item_name || '?'}</div>
+          <div class="item-name">${iName(tr)}</div>
           ${tr.item_type ? `<div class="item-meta">${tr.item_type}</div>` : ''}
         </td>
         <td>
@@ -1443,7 +1448,7 @@ async function loadHistory() {
             : `<div class="item-icon-placeholder">📦</div>`}
         </td>
         <td>
-          <div class="item-name">${t.item_name}</div>
+          <div class="item-name">${iName(t)}</div>
           ${t.item_type ? `<div class="item-meta">${t.item_type}</div>` : ''}
         </td>
         <td><span class="status-badge ${statusKey}">${i18n('status.' + statusKey)}</span></td>
@@ -1652,7 +1657,7 @@ async function setUserLang(account, lang) {
 function renderEmpfaenger(tr) {
   const isPool = !tr.to_account || tr.to_account === 'silverbase' || tr.to_account === 'unassigned';
   const total = tr.quantity_transferred;
-  const name  = (tr.item_name || '').replace(/'/g, "\'");
+  const name  = iName(tr).replace(/'/g, "\'");
   if (isPool) {
     return `<button onclick="openAssignPopup(${tr.id},'${name}',${total},'silverbase')"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
