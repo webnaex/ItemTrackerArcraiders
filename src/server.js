@@ -23,13 +23,11 @@ async function getAllUsers() {
 
   // DB-Passwörter überschreiben Env-Werte
   try {
-    const { rows } = await pool.query('SELECT account, password, lang FROM user_passwords');
+    const { rows } = await pool.query('SELECT account, password, lang, role FROM user_passwords');
     for (const row of rows) {
-      if (row.account === 'view') {
-        users[row.password] = { role: 'view', account: null, lang: row.lang || 'de' };
-      } else {
-        users[row.password] = { role: 'user', account: row.account, lang: row.lang || 'de' };
-      }
+      const role = row.role || (row.account === 'view' ? 'view' : 'user');
+      const account = role === 'view' ? null : row.account;
+      users[row.password] = { role, account, lang: row.lang || 'de' };
     }
   } catch (_) {}
 
@@ -47,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.10';
+const APP_VERSION = '1.2.11';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -90,14 +88,45 @@ const MANAGED_ACCOUNTS = ['view', 'consta', 'junez'];
 app.get('/api/admin/users', adminOnly, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      'SELECT account, updated_at, lang FROM user_passwords WHERE account = ANY($1)',
-      [MANAGED_ACCOUNTS]
+      'SELECT account, updated_at, lang, role FROM user_passwords ORDER BY updated_at ASC'
     );
-    const result = MANAGED_ACCOUNTS.map(a => {
-      const found = rows.find(r => r.account === a);
-      return { account: a, hasPassword: !!found, updatedAt: found?.updated_at || null, lang: found?.lang || 'de' };
-    });
+    const result = rows.map(r => ({
+      account: r.account,
+      hasPassword: true,
+      updatedAt: r.updated_at,
+      lang: r.lang || 'de',
+      role: r.role || 'user',
+    }));
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Neuen User anlegen ───────────────────────────────────────────────────────
+app.post('/api/admin/users', adminOnly, async (req, res) => {
+  const { account, password, role } = req.body;
+  if (!account || !/^[a-z0-9_]+$/.test(account)) return res.status(400).json({ error: 'Ungültiger Accountname (nur a-z, 0-9, _)' });
+  if (!password || password.length < 3) return res.status(400).json({ error: 'Passwort zu kurz (min. 3 Zeichen)' });
+  const validRole = ['user', 'view'].includes(role) ? role : 'user';
+  try {
+    await pool.query(
+      `INSERT INTO user_passwords (account, password, role, updated_at) VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (account) DO UPDATE SET password = $2, role = $3, updated_at = NOW()`,
+      [account, password, validRole]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── User löschen ─────────────────────────────────────────────────────────────
+app.delete('/api/admin/users/:account', adminOnly, async (req, res) => {
+  const { account } = req.params;
+  try {
+    await pool.query('DELETE FROM user_passwords WHERE account = $1', [account]);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -106,7 +135,6 @@ app.get('/api/admin/users', adminOnly, async (req, res) => {
 app.put('/api/admin/users/:account/password', adminOnly, async (req, res) => {
   const { account } = req.params;
   const { password } = req.body;
-  if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
   if (!password || password.length < 3) return res.status(400).json({ error: 'Passwort zu kurz (min. 3 Zeichen)' });
 
   try {
@@ -124,7 +152,6 @@ app.put('/api/admin/users/:account/password', adminOnly, async (req, res) => {
 
 app.delete('/api/admin/users/:account/password', adminOnly, async (req, res) => {
   const { account } = req.params;
-  if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
   try {
     await pool.query('DELETE FROM user_passwords WHERE account = $1', [account]);
     res.json({ success: true });
@@ -136,7 +163,6 @@ app.delete('/api/admin/users/:account/password', adminOnly, async (req, res) => 
 app.put('/api/admin/users/:account/lang', adminOnly, async (req, res) => {
   const { account } = req.params;
   const { lang } = req.body;
-  if (!MANAGED_ACCOUNTS.includes(account)) return res.status(400).json({ error: 'Unbekannter Account' });
   if (!['de', 'en'].includes(lang)) return res.status(400).json({ error: 'Ungültige Sprache' });
   try {
     // Nur updaten wenn Account existiert - kein INSERT mit leerem Passwort

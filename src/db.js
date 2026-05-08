@@ -9,6 +9,7 @@ const pool = new Pool({
 export async function initDB() {
   // Spalten-Migrationen zuerst (separate Queries damit sie immer laufen)
   await pool.query(`ALTER TABLE user_passwords ADD COLUMN IF NOT EXISTS lang TEXT NOT NULL DEFAULT 'de'`).catch(() => {});
+  await pool.query(`ALTER TABLE user_passwords ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`).catch(() => {});
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS transfers (
