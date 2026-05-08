@@ -755,6 +755,7 @@ const T = {
     'lager.empty':   'Keine offenen Transfers.',
     'stash.reserved':  'bereits im Lager',
     'stash.unavail':   'nicht verfügbar',
+    'role.view':     'Nur Ansicht',
     'lager.search':  'Suchen...',
     'lager.showdone': 'Erledigte',
     'lager.merge':   'Duplikate zusammenführen',
@@ -850,6 +851,7 @@ const T = {
     'lager.empty':    'No open transfers.',
     'stash.reserved':  'already in storage',
     'stash.unavail':   'unavailable',
+    'role.view':     'View Only',
     'lager.search':  'Search...',
     'lager.showdone': 'Completed',
     'lager.merge':   'Merge duplicates',
@@ -954,10 +956,12 @@ function applyLang() {
   document.querySelectorAll('[data-i18n-ph]').forEach(el => {
     el.placeholder = i18n(el.dataset.i18nPh);
   });
-  // API-Status Pill (nur wenn noch nicht angemeldet oder BEREIT)
+  // API-Status Pill
   const pill = document.getElementById('api-status');
   if (pill && (pill.textContent.includes('BEREIT') || pill.textContent.includes('READY'))) {
     pill.textContent = i18n('api.ready');
+  } else if (pill && ROLE === 'view') {
+    pill.textContent = i18n('role.view');
   }
   // Dynamische Inhalte neu rendern
   renderSelection();
@@ -1060,7 +1064,7 @@ function applyRole() {
     pill.textContent = USER_ACCOUNT.toUpperCase();
     pill.className = 'status-pill warn';
   } else if (ROLE === 'view') {
-    pill.textContent = 'NUR ANSICHT';
+    pill.textContent = i18n('role.view');
     pill.className = 'status-pill';
   }
 
