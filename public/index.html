@@ -1347,12 +1347,20 @@ function renderStash() {
     const id = item.id || item.item_id;
     const name = sName(item);
     const stashQty = item.quantity ?? item.qty ?? 0;
-    const reserved = reservedQtys[id] || 0;
+    const reservedById = reservedQtys[id] || 0;
+    // Fallback: per item_name matchen (Stash-Slot-IDs wie queen_reactor_69 vs gespeicherter ID)
+    const itemNameKey = (item.name?.de || item.name || '').toLowerCase().trim();
+    const reservedByNameTotal = reservedByName[itemNameKey] || 0;
+    // Wie viele gleichnamige Items kommen VOR diesem in der gefilterten Liste?
+    const sameNameBefore = filteredItems.slice(0, filteredItems.indexOf(item))
+      .filter(x => (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey).length;
+    const unavailByName = reservedById === 0 && sameNameBefore < reservedByNameTotal;
+    const reserved = reservedById;
     const availQty = Math.max(0, stashQty - reserved);
     const type = item.type || item.item_type || '';
     const icon = item.icon_url || item.icon || '';
     const sel = selection[id];
-    const unavail = availQty === 0 && !sel;
+    const unavail = (availQty === 0 && !sel) || (unavailByName && !sel);
 
     const isNew = newItemIds.has(id);
     return `<div class="item-row ${sel ? 'selected' : ''} ${unavail ? 'item-unavail' : ''}"
@@ -1368,7 +1376,7 @@ function renderStash() {
           : `${type}${type && id ? ' · ' : ''}${id || ''}`
         }</div>
       </div>
-      <div class="item-qty" style="${unavail ? 'color:var(--danger);' : reserved > 0 ? 'color:var(--warn);' : ''}">
+      <div class="item-qty" style="${unavail ? 'color:var(--danger);' : (reserved > 0 || unavailByName) ? 'color:var(--warn);' : ''}">
         ${reserved > 0 ? `<span style="font-size:10px;color:var(--text-muted);">${stashQty}−${reserved}=</span> ` : ''}${availQty}
       </div>
     </div>`;
