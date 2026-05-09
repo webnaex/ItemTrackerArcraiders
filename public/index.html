@@ -529,6 +529,7 @@
           <div class="panel-title">Silverbase Stash</div>
           <div class="panel-subtitle" id="stash-meta">— items</div>
           <button class="btn btn-outline btn-sm" onclick="loadStash()" data-i18n="stash.load_btn">↻ Stash laden</button>
+          <button class="btn btn-outline btn-sm" id="btn-stash-sort" onclick="toggleStashSort()" style="font-family:var(--mono);font-size:11px;letter-spacing:.05em;">A–Z</button>
         </div>
         <div class="toolbar">
           <input type="text" id="stash-search" placeholder="Item suchen …" data-i18n-ph="stash.search" oninput="filterStash()">
@@ -1035,6 +1036,8 @@ let filteredItems = [];
 let selection = {}; // { itemId: { item, qty } }
 let activeTransfers = [];
 let reservedQtys = {}; // item_id → reserved quantity (pending transfers)
+let stashSort = 'newest'; // 'newest' | 'az'
+let newItemIds = new Set(); // IDs die seit letztem Load neu sind
 let showDone = false;
 let searchQuery = '';
 let autoRefreshTimer = null;
@@ -1207,12 +1210,20 @@ async function loadStash() {
     // Singles: id temporär durch _mergeKey ersetzen damit toggleItem sie einzeln adressiert
     singles.forEach(item => { item.id = item._mergeKey; });
 
-    // Alphabetisch sortieren → ähnliche Namen nebeneinander
-    stashItems = [...Object.values(merged), ...singles].sort((a, b) => {
-      const na = (a.name?.de || a.name?.en || a.name || '').toLowerCase();
-      const nb = (b.name?.de || b.name?.en || b.name || '').toLowerCase();
-      return na.localeCompare(nb, 'de');
+    // Neu-Items erkennen durch Vergleich mit letztem Snapshot
+    const lastSnap = JSON.parse(localStorage.getItem('stash_snap') || '{}');
+    newItemIds = new Set();
+    const allItems = [...Object.values(merged), ...singles];
+    allItems.forEach(item => {
+      const id = item.id || item.item_id;
+      if (!lastSnap[id] || item.quantity > lastSnap[id]) newItemIds.add(id);
     });
+    // Snapshot speichern
+    const snap = {};
+    allItems.forEach(item => { snap[item.id || item.item_id] = item.quantity; });
+    localStorage.setItem('stash_snap', JSON.stringify(snap));
+
+    stashItems = sortStashItems(allItems);
     document.getElementById('stash-meta').textContent = `${stashItems.length} ${i18n('stash.items')}`;
     document.getElementById('api-status').textContent = i18n('api.ok');
     document.getElementById('api-status').className = 'status-pill ok';
@@ -1244,6 +1255,30 @@ async function loadStash() {
   }
 }
 
+function sortStashItems(items) {
+  if (stashSort === 'newest') {
+    // Neue Items zuerst, dann A-Z
+    return [...items].sort((a, b) => {
+      const aNew = newItemIds.has(a.id || a.item_id) ? 0 : 1;
+      const bNew = newItemIds.has(b.id || b.item_id) ? 0 : 1;
+      if (aNew !== bNew) return aNew - bNew;
+      return sName(a).toLowerCase().localeCompare(sName(b).toLowerCase(), 'de');
+    });
+  }
+  // A-Z
+  return [...items].sort((a, b) =>
+    sName(a).toLowerCase().localeCompare(sName(b).toLowerCase(), 'de')
+  );
+}
+
+function toggleStashSort() {
+  stashSort = stashSort === 'newest' ? 'az' : 'newest';
+  const btn = document.getElementById('btn-stash-sort');
+  if (btn) btn.textContent = stashSort === 'newest' ? 'A–Z' : '✦ Neu';
+  filteredItems = sortStashItems(filteredItems);
+  renderStash();
+}
+
 function filterStash() {
   const q = document.getElementById('stash-search').value.toLowerCase();
   const type = document.getElementById('stash-type-filter').value;
@@ -1253,11 +1288,7 @@ function filterStash() {
     const matchT = !type || (item.type || item.item_type || '') === type;
     return matchQ && matchT;
   });
-  filteredItems.sort((a, b) => {
-    const na = sName(a).toLowerCase();
-    const nb = sName(b).toLowerCase();
-    return na.localeCompare(nb, 'de');
-  });
+  filteredItems = sortStashItems(filteredItems);
   renderStash();
 }
 
@@ -1279,6 +1310,7 @@ function renderStash() {
     const sel = selection[id];
     const unavail = availQty === 0 && !sel;
 
+    const isNew = newItemIds.has(id);
     return `<div class="item-row ${sel ? 'selected' : ''} ${unavail ? 'item-unavail' : ''}"
       onclick="${unavail ? '' : `toggleItem('${id}')`}"
       style="${unavail ? 'opacity:0.4;cursor:not-allowed;' : ''}">
@@ -1286,7 +1318,7 @@ function renderStash() {
         ? `<img class="item-icon" src="${icon}" alt="" onerror="this.style.display='none'">`
         : `<div class="item-icon-placeholder">📦</div>`}
       <div class="item-info">
-        <div class="item-name">${name}</div>
+        <div class="item-name">${name} ${isNew && !unavail ? '<span style="font-size:9px;font-family:var(--mono);background:var(--accent);color:#000;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">NEU</span>' : ''}</div>
         <div class="item-meta">${unavail
           ? `<span style="color:var(--warn);">⚠ ${i18n('stash.reserved')}</span>`
           : `${type}${type && id ? ' · ' : ''}${id || ''}`
