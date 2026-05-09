@@ -2004,7 +2004,7 @@ async function setUserLang(account, lang) {
 function renderEmpfaenger(tr) {
   const isPool = !tr.to_account || tr.to_account === 'silverbase' || tr.to_account === 'unassigned';
   const total = tr.quantity_transferred;
-  const name  = JSON.stringify(iName(tr)); // sicher gegen Apostrophe wie "Leviathan's"
+  const name  = JSON.stringify(iName(tr)).replace(/"/g, '&quot;'); // safe für HTML-Attribute
   if (isPool) {
     return `<button onclick="openAssignPopup(${tr.id},${name},${total},'silverbase')"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
