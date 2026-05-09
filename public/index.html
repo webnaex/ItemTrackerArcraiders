@@ -1531,7 +1531,7 @@ function renderTransfers() {
                     <input class="qty-input" type="number" min="1" max="${total}" value="${total}"
                       id="ret-qty-${tr.id}" style="width:48px;" onclick="event.stopPropagation()">
                     <button class="btn btn-ok btn-sm" onclick="returnItem(${tr.id})">✓</button>
-                    ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>` : ''}
+                    ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>${total > 1 ? `<button class="btn btn-outline btn-sm" onclick="splitTransfer(${tr.id})" title="Aufteilen in ${total}×1" style="color:var(--warn);border-color:var(--warn);padding:2px 6px;">✂</button>` : ''}` : ''}
                   </div>`
                 : `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">⟳ ${total}</span>`)
             : `<span class="status-badge done">${i18n('status.done')}</span>`}
@@ -1549,6 +1549,21 @@ function onSearchInput(val) {
 function toggleShowDone(checked) {
   showDone = checked;
   loadTransfers();
+}
+
+async function splitTransfer(id) {
+  try {
+    const d = await api('POST', `/api/transfers/${id}/split`);
+    if (d.split > 0) {
+      toast(`✂ ${d.split + 1}× aufgeteilt`, 'ok');
+      await loadTransfers();
+      await refreshReservedQtys();
+    } else {
+      toast(d.message || 'Bereits qty=1', 'info');
+    }
+  } catch (e) {
+    toast(e.message, 'err');
+  }
 }
 
 async function mergeDuplicates() {
