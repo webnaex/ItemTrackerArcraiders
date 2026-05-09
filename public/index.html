@@ -1254,12 +1254,15 @@ async function loadStash() {
     // Pending Transfers laden um reservierte Mengen zu berechnen
     try {
       const tx = await api('GET', '/api/transfers');
-      // reserved: item_id → summe der pending/partial Mengen
+      // reserved: item_id → summe der pending/partial Mengen (kein done/deleted)
       reservedQtys = {};
-      tx.filter(t => t.status !== 'done').forEach(t => {
+      reservedByName = {};
+      tx.filter(t => t.status !== 'done' && t.status !== 'deleted').forEach(t => {
         if (t.item_id) reservedQtys[t.item_id] = (reservedQtys[t.item_id] || 0) + (t.quantity_transferred || 0);
+        const nameKey = (t.item_name || '').toLowerCase().trim();
+        if (nameKey) reservedByName[nameKey] = (reservedByName[nameKey] || 0) + (t.quantity_transferred || 0);
       });
-    } catch (_) { reservedQtys = {}; }
+    } catch (_) { reservedQtys = {}; reservedByName = {}; }
 
     filteredItems = [...stashItems];
     renderStash();
@@ -1489,8 +1492,11 @@ async function refreshReservedQtys() {
   try {
     const tx = await api('GET', '/api/transfers');
     reservedQtys = {};
+    reservedByName = {};
     tx.filter(t => t.status !== 'done' && t.status !== 'deleted').forEach(t => {
       if (t.item_id) reservedQtys[t.item_id] = (reservedQtys[t.item_id] || 0) + (t.quantity_transferred || 0);
+      const nameKey = (t.item_name || '').toLowerCase().trim();
+      if (nameKey) reservedByName[nameKey] = (reservedByName[nameKey] || 0) + (t.quantity_transferred || 0);
     });
   } catch (_) {}
 }

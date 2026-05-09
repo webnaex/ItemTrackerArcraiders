@@ -11,7 +11,15 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ─── User-Tabelle (Env + DB) ──────────────────────────────────────────────────
-async function getAllUsers() {
+let _usersCache = null;
+let _usersCacheAt = 0;
+const USERS_CACHE_TTL = 30_000; // 30 Sekunden
+
+async function getAllUsers(force = false) {
+  const now = Date.now();
+  if (!force && _usersCache && (now - _usersCacheAt) < USERS_CACHE_TTL) {
+    return _usersCache;
+  }
   // Superadmin kommt immer aus Env
   const users = {
     [process.env.APP_PASSWORD || 'arcraiders']: { role: 'admin', account: null },
@@ -31,8 +39,13 @@ async function getAllUsers() {
     }
   } catch (_) {}
 
+  _usersCache = users;
+  _usersCacheAt = now;
   return users;
 }
+
+// Cache invalidieren nach User-Änderungen
+function invalidateUsersCache() { _usersCache = null; }
 
 // ─── Public Settings (vor Middleware!) ───────────────────────────────────────
 app.get('/api/settings/public', async (req, res) => {
@@ -45,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.33';
+const APP_VERSION = '1.2.34';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -115,6 +128,7 @@ app.post('/api/admin/users', adminOnly, async (req, res) => {
        ON CONFLICT (account) DO UPDATE SET password = $2, role = $3, updated_at = NOW()`,
       [account, password, validRole]
     );
+    invalidateUsersCache();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -126,6 +140,7 @@ app.delete('/api/admin/users/:account', adminOnly, async (req, res) => {
   const { account } = req.params;
   try {
     await pool.query('DELETE FROM user_passwords WHERE account = $1', [account]);
+    invalidateUsersCache();
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -237,23 +252,32 @@ app.post('/api/admin/backups/:id/restore', adminOnly, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Backup nicht gefunden' });
     const transfers = rows[0].snapshot;
 
-    // Alle aktuellen Transfers löschen und aus Snapshot wiederherstellen
-    await pool.query('DELETE FROM transfers');
-    for (const t of transfers) {
-      await pool.query(
-        `INSERT INTO transfers
-          (id, expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
-           quantity_transferred, quantity_returned, from_account, to_account,
-           status, notes, created_at, returned_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-         ON CONFLICT (id) DO NOTHING`,
-        [t.id, t.expedition_label, t.item_id, t.item_name, t.item_name_en, t.item_type,
-         t.icon_url, t.quantity_transferred, t.quantity_returned, t.from_account,
-         t.to_account, t.status, t.notes, t.created_at, t.returned_at]
-      );
+    // Alle aktuellen Transfers löschen und aus Snapshot wiederherstellen (in Transaktion)
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM transfers');
+      for (const t of transfers) {
+        await client.query(
+          `INSERT INTO transfers
+            (id, expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
+             quantity_transferred, quantity_returned, from_account, to_account,
+             status, notes, created_at, returned_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+           ON CONFLICT (id) DO NOTHING`,
+          [t.id, t.expedition_label, t.item_id, t.item_name, t.item_name_en, t.item_type,
+           t.icon_url, t.quantity_transferred, t.quantity_returned, t.from_account,
+           t.to_account, t.status, t.notes, t.created_at, t.returned_at]
+        );
+      }
+      await client.query("SELECT setval('transfers_id_seq', COALESCE((SELECT MAX(id) FROM transfers), 1))");
+      await client.query('COMMIT');
+    } catch (restoreErr) {
+      await client.query('ROLLBACK');
+      throw restoreErr;
+    } finally {
+      client.release();
     }
-    // Sequence zurücksetzen
-    await pool.query("SELECT setval('transfers_id_seq', COALESCE((SELECT MAX(id) FROM transfers), 1))");
     res.json({ success: true, count: transfers.length });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -482,10 +506,10 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
       const { rows: r } = await pool.query(
         `INSERT INTO transfers
           (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
-           quantity_transferred, from_account, to_account, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+           quantity_transferred, from_account, to_account, is_stackable, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
         [orig.expedition_label, orig.item_id, orig.item_name, orig.item_name_en,
-         orig.item_type, orig.icon_url, qty, orig.from_account, acct, orig.created_at]
+         orig.item_type, orig.icon_url, qty, orig.from_account, acct, orig.is_stackable, orig.created_at]
       );
       created.push(r[0]);
     }
@@ -494,10 +518,10 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
       const { rows: r } = await pool.query(
         `INSERT INTO transfers
           (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
-           quantity_transferred, from_account, to_account, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+           quantity_transferred, from_account, to_account, is_stackable, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
         [orig.expedition_label, orig.item_id, orig.item_name, orig.item_name_en,
-         orig.item_type, orig.icon_url, remainder, orig.from_account, orig.from_account, orig.created_at]
+         orig.item_type, orig.icon_url, remainder, orig.from_account, orig.from_account, orig.is_stackable, orig.created_at]
       );
       created.push(r[0]);
     }
