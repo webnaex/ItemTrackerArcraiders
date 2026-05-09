@@ -1567,7 +1567,7 @@ function renderTransfers() {
             onclick="event.stopPropagation()"
             style="width:100%;min-width:0;">
         </td>
-        <td>${ROLE === 'admin' ? renderEmpfaenger(tr) : ''}</td>
+        <td>${ROLE === 'admin' ? renderEmpfaenger(tr) : (ROLE === 'view' ? renderEmpfaengerReadonly(tr) : '')}</td>
         <td style="font-family:var(--mono);font-size:13px;white-space:nowrap;">
           <span style="color:var(--text-dim);">${returned}</span>
           <span style="color:var(--border2);margin:0 2px;">/</span>
@@ -2056,6 +2056,16 @@ async function setUserLang(account, lang) {
 }
 
 // ── EMPFÄNGER Spalte ──────────────────────────────────────────────────────
+function renderEmpfaengerReadonly(tr) {
+  const isPool = !tr.to_account || tr.to_account === 'silverbase' || tr.to_account === 'unassigned';
+  if (isPool) return `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">— tba</span>`;
+  const acct = tr.to_account;
+  return `<div class="empf-user-pill" style="pointer-events:none;">
+    <span class="empf-avatar">👤</span>
+    <span class="empf-name">${acct} ×${tr.quantity_transferred}</span>
+  </div>`;
+}
+
 function renderEmpfaenger(tr) {
   const isPool = !tr.to_account || tr.to_account === 'silverbase' || tr.to_account === 'unassigned';
   const total = tr.quantity_transferred;
