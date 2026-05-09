@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.19';
+const APP_VERSION = '1.2.20';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -650,9 +650,9 @@ app.delete('/api/admin/transfers/all', adminOnly, async (req, res) => {
 app.get('/api/stats/slots', async (req, res) => {
   const TOTAL_SLOTS = 280;
   try {
-    // Jeder pending/partial Transfer = 1 Slot
+    // Jede Einheit = 1 Slot (SUM quantity_transferred)
     const { rows } = await pool.query(`
-      SELECT to_account, COUNT(*) AS slots
+      SELECT to_account, SUM(quantity_transferred) AS slots
       FROM transfers
       WHERE status IN ('pending', 'partial')
       GROUP BY to_account

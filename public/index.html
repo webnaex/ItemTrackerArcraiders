@@ -1556,6 +1556,9 @@ async function mergeDuplicates() {
     if (result.merged > 0) {
       toast(i18n('lager.merged') + ': ' + result.merged, 'ok');
       await loadTransfers();
+      await refreshReservedQtys();
+      // Usage-Tab falls gerade aktiv auch neu laden
+      if (document.getElementById('page-usage')?.classList.contains('active')) loadUsage();
     } else {
       toast(i18n('lager.nodups'), 'info');
     }
