@@ -1142,6 +1142,10 @@ function applyRole() {
   } else if (ROLE === 'view') {
     pill.textContent = i18n('role.view');
     pill.className = 'status-pill';
+    // View-Rolle sieht immer alle Transfers (auch erledigte)
+    showDone = true;
+    const cbDone = document.getElementById('toggle-showdone');
+    if (cbDone) cbDone.checked = true;
   }
 
   document.getElementById('btn-logout').style.display = '';
