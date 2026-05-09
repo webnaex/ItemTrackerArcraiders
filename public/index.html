@@ -1039,6 +1039,7 @@ let filteredItems = [];
 let selection = {}; // { itemId: { item, qty } }
 let activeTransfers = [];
 let reservedQtys = {}; // item_id → reserved quantity (pending transfers)
+let reservedByName = {}; // item_name(de, lowercase) → reserved quantity
 let stashSort = 'newest'; // 'newest' | 'az'
 let newItemIds = new Map(Object.entries(JSON.parse(localStorage.getItem('stash_new_ids') || '{}'))); // id → ISO-Timestamp
 let showDone = false;
