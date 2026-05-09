@@ -1040,7 +1040,7 @@ let selection = {}; // { itemId: { item, qty } }
 let activeTransfers = [];
 let reservedQtys = {}; // item_id → reserved quantity (pending transfers)
 let stashSort = 'newest'; // 'newest' | 'az'
-let newItemIds = new Set(JSON.parse(localStorage.getItem('stash_new_ids') || '[]')); // persistent neue Items
+let newItemIds = new Map(Object.entries(JSON.parse(localStorage.getItem('stash_new_ids') || '{}'))); // id → ISO-Timestamp
 let showDone = false;
 let searchQuery = '';
 let autoRefreshTimer = null;
@@ -1218,15 +1218,18 @@ async function loadStash() {
     // Persistente NEU-Liste: nur NEUE items hinzufügen, nie automatisch löschen
     const lastSnap = JSON.parse(localStorage.getItem('stash_snap') || '{}');
     // newItemIds bleibt erhalten (aus localStorage geladen) – nur neue Items dazufügen
+    const now = new Date().toISOString();
     allItems.forEach(item => {
       const id = item.id || item.item_id;
-      if (!lastSnap[id] || item.quantity > lastSnap[id]) newItemIds.add(id);
+      if (!lastSnap[id] || item.quantity > lastSnap[id]) {
+        if (!newItemIds.has(id)) newItemIds.set(id, now); // alter Timestamp bleibt erhalten
+      }
     });
     // Items die nicht mehr im Stash sind aus NEU-Liste entfernen
     const currentIds = new Set(allItems.map(i => i.id || i.item_id));
-    newItemIds.forEach(id => { if (!currentIds.has(id)) newItemIds.delete(id); });
-    // Persistieren
-    localStorage.setItem('stash_new_ids', JSON.stringify([...newItemIds]));
+    newItemIds.forEach((ts, id) => { if (!currentIds.has(id)) newItemIds.delete(id); });
+    // Persistieren als {id: timestamp}
+    localStorage.setItem('stash_new_ids', JSON.stringify(Object.fromEntries(newItemIds)));
     // Snapshot speichern
     const snap = {};
     allItems.forEach(item => { snap[item.id || item.item_id] = item.quantity; });
@@ -1268,11 +1271,13 @@ async function loadStash() {
 
 function sortStashItems(items) {
   if (stashSort === 'newest') {
-    // Neue Items zuerst, dann A-Z
+    // Neue Items zuerst (nach Timestamp desc), dann A-Z
     return [...items].sort((a, b) => {
-      const aNew = newItemIds.has(a.id || a.item_id) ? 0 : 1;
-      const bNew = newItemIds.has(b.id || b.item_id) ? 0 : 1;
-      if (aNew !== bNew) return aNew - bNew;
+      const tsA = newItemIds.get(a.id || a.item_id) || null;
+      const tsB = newItemIds.get(b.id || b.item_id) || null;
+      if (tsA && !tsB) return -1;
+      if (!tsA && tsB) return 1;
+      if (tsA && tsB && tsA !== tsB) return tsB.localeCompare(tsA); // neuester zuerst
       return sName(a).toLowerCase().localeCompare(sName(b).toLowerCase(), 'de');
     });
   }
@@ -1303,8 +1308,8 @@ function updateNeuButton() {
 }
 
 function clearNeuIds() {
-  newItemIds = new Set();
-  localStorage.setItem('stash_new_ids', '[]');
+  newItemIds = new Map();
+  localStorage.setItem('stash_new_ids', '{}');
   updateNeuButton();
   filteredItems = sortStashItems(filteredItems);
   renderStash();
@@ -1357,7 +1362,7 @@ function renderStash() {
         ? `<img class="item-icon" src="${icon}" alt="" onerror="this.style.display='none'">`
         : `<div class="item-icon-placeholder">📦</div>`}
       <div class="item-info">
-        <div class="item-name">${name} ${isNew && !unavail ? '<span style="font-size:9px;font-family:var(--mono);background:var(--accent);color:#000;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle;">NEU</span>' : ''}</div>
+        <div class="item-name">${name} ${isNew && !unavail ? (() => { const ts = newItemIds.get(id); const d = ts ? new Date(ts) : null; const label = d ? d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : 'NEU'; return `<span style="font-size:9px;font-family:var(--mono);background:var(--warn);color:#000;padding:1px 6px;border-radius:3px;margin-left:5px;vertical-align:middle;white-space:nowrap;">✦ ${label}</span>`; })() : ''}</div>
         <div class="item-meta">${unavail
           ? `<span style="color:var(--warn);">⚠ ${i18n('stash.reserved')}</span>`
           : `${type}${type && id ? ' · ' : ''}${id || ''}`
