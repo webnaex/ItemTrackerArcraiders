@@ -685,6 +685,7 @@
         <div class="panel-body" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
           <div style="font-size:13px;color:var(--text-dim);flex:1;">Alle Transfers unwiderruflich löschen (History, Lager, alles).</div>
           <button class="btn btn-outline btn-sm" onclick="purgeDeleted()" style="color:var(--danger);border-color:var(--danger);">🧹 Gelöschte bereinigen</button>
+          <button class="btn btn-outline btn-sm" onclick="splitWeapons()" style="color:var(--warn);border-color:var(--warn);" title="Zusammengefasste Waffen wieder aufteilen">⚔️ Waffen aufteilen</button>
           <button class="btn btn-danger" onclick="resetAllTransfers()">🗑 Alle Transfers löschen</button>
         </div>
       </div>
@@ -1863,7 +1864,21 @@ async function loadAdminUsers() {
   }
 }
 
-async function purgeDeleted() {
+async function splitWeapons() {
+    if (!confirm('Zusammengefasste Waffen-Transfers aufteilen? Der Stash wird kurz geladen um Waffen zu erkennen.')) return;
+    try {
+      const r = await fetch('/api/admin/transfers/split-weapons', { method: 'POST', headers: { 'X-Auth-Token': authToken } });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+      alert(`✅ ${d.weapons} Waffen-Typen erkannt\n${d.marked} Transfers als Waffe markiert\n${d.split} Zeilen aufgeteilt`);
+      await loadTransfers();
+      await refreshReservedQtys();
+    } catch (e) {
+      alert('Fehler: ' + e.message);
+    }
+  }
+
+  async function purgeDeleted() {
   if (!confirm('Alle DELETED-Einträge dauerhaft aus der History entfernen?')) return;
   try {
     const r = await api('DELETE', '/api/admin/transfers/deleted');

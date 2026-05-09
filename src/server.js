@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.21';
+const APP_VERSION = '1.2.22';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -587,6 +587,64 @@ app.post('/api/transfers/backfill-names', adminOnly, async (req, res) => {
       updated += rowCount;
     }
     res.json({ updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Waffen-Transfers aufteilen (Admin) ──────────────────────────────────────
+app.post('/api/admin/transfers/split-weapons', adminOnly, async (req, res) => {
+  try {
+    // 1) Stash holen um Waffen-IDs zu ermitteln (durabilityPercent != null)
+    const rawDe = await getFullStash('silverbase', 'de');
+    const weaponIds = new Set(
+      rawDe
+        .filter(item => item.durabilityPercent != null)
+        .map(item => item.itemId || item.id || item.item_id)
+        .filter(Boolean)
+    );
+
+    if (weaponIds.size === 0) {
+      return res.json({ marked: 0, split: 0, message: 'Keine Waffen im Stash gefunden' });
+    }
+
+    // 2) is_stackable = false für alle Waffen-Transfers setzen
+    const { rowCount: marked } = await pool.query(
+      `UPDATE transfers SET is_stackable = false
+       WHERE item_id = ANY($1) AND is_stackable = true`,
+      [Array.from(weaponIds)]
+    );
+
+    // 3) Transfers mit qty > 1 die Waffen sind aufteilen
+    const { rows: toSplit } = await pool.query(
+      `SELECT * FROM transfers
+       WHERE is_stackable = false AND quantity_transferred > 1
+         AND status NOT IN ('done', 'deleted')`
+    );
+
+    let splitCount = 0;
+    for (const row of toSplit) {
+      const qty = row.quantity_transferred;
+      // Original auf qty=1 setzen
+      await pool.query(
+        `UPDATE transfers SET quantity_transferred = 1 WHERE id = $1`,
+        [row.id]
+      );
+      // (qty - 1) neue Zeilen anlegen
+      for (let i = 1; i < qty; i++) {
+        await pool.query(
+          `INSERT INTO transfers
+             (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
+              quantity_transferred, from_account, to_account, is_stackable, status)
+           VALUES ($1,$2,$3,$4,$5,$6,1,$7,$8,false,$9)`,
+          [row.expedition_label, row.item_id, row.item_name, row.item_name_en,
+           row.item_type, row.icon_url, row.from_account, row.to_account, row.status]
+        );
+        splitCount++;
+      }
+    }
+
+    res.json({ marked, split: splitCount, weapons: weaponIds.size });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
