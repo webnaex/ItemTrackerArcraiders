@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.20';
+const APP_VERSION = '1.2.21';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -338,8 +338,8 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
 
       const { rows } = await pool.query(
         `INSERT INTO transfers
-          (expedition_label, item_id, item_name, item_name_en, item_type, icon_url, quantity_transferred, from_account, to_account)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          (expedition_label, item_id, item_name, item_name_en, item_type, icon_url, quantity_transferred, from_account, to_account, is_stackable)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           expedition_label || 'aktuell',
@@ -351,6 +351,7 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
           item.quantity,
           'silverbase',
           target,
+          item.is_stackable !== false,
         ]
       );
       inserted.push(rows[0]);
@@ -594,13 +595,13 @@ app.post('/api/transfers/backfill-names', adminOnly, async (req, res) => {
 // ─── Duplikate zusammenführen ─────────────────────────────────────────────────
 app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
   try {
-    // Find groups: same item_name + to_account + status='pending' with multiple rows
+    // Nur stapelbare Items zusammenführen (keine Waffen/Aufsätze)
     const { rows: groups } = await pool.query(`
       SELECT item_name, to_account, expedition_label,
              array_agg(id ORDER BY created_at) AS ids,
              SUM(quantity_transferred) AS total_qty
       FROM transfers
-      WHERE status = 'pending'
+      WHERE status = 'pending' AND is_stackable = true
       GROUP BY item_name, to_account, expedition_label
       HAVING COUNT(*) > 1
     `);

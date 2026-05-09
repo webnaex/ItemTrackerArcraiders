@@ -1410,6 +1410,7 @@ async function confirmTransfer() {
     type: item.type || item.item_type,
     icon_url: item.icon_url || item.icon,
     quantity: qty,
+    is_stackable: item.durabilityPercent == null, // Waffen haben durabilityPercent
   }));
 
   try {

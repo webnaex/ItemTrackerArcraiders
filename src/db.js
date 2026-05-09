@@ -11,6 +11,7 @@ export async function initDB() {
   await pool.query(`ALTER TABLE user_passwords ADD COLUMN IF NOT EXISTS lang TEXT NOT NULL DEFAULT 'de'`).catch(() => {});
   await pool.query(`ALTER TABLE user_passwords ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`).catch(() => {});
   await pool.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`).catch(() => {});
+  await pool.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS is_stackable BOOLEAN NOT NULL DEFAULT true`).catch(() => {});
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS transfers (
