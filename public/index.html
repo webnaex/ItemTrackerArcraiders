@@ -529,7 +529,8 @@
           <div class="panel-title">Silverbase Stash</div>
           <div class="panel-subtitle" id="stash-meta">— items</div>
           <button class="btn btn-outline btn-sm" onclick="loadStash()" data-i18n="stash.load_btn">↻ Stash laden</button>
-          <button class="btn btn-outline btn-sm" id="btn-stash-sort" onclick="toggleStashSort()" style="font-family:var(--mono);font-size:11px;letter-spacing:.05em;">A–Z</button>
+          <button class="btn btn-outline btn-sm" id="btn-sort-az" onclick="setStashSort('az')" style="font-family:var(--mono);font-size:11px;letter-spacing:.05em;">A–Z</button>
+          <button class="btn btn-outline btn-sm" id="btn-sort-neu" onclick="setStashSort('newest')" style="font-family:var(--mono);font-size:11px;letter-spacing:.05em;border-color:var(--warn);color:var(--warn);">✦ NEU</button>
           <button class="btn btn-outline btn-sm" id="btn-clear-neu" onclick="clearNeuIds()" style="display:none;font-family:var(--mono);font-size:11px;letter-spacing:.05em;color:var(--text-muted);border-color:var(--border);">✕ Gesehen</button>
         </div>
         <div class="toolbar">
@@ -1283,18 +1284,20 @@ function sortStashItems(items) {
 
 function updateNeuButton() {
   const neuCount = newItemIds.size;
-  const sortBtn = document.getElementById('btn-stash-sort');
+  const neuBtn = document.getElementById('btn-sort-neu');
+  const azBtn  = document.getElementById('btn-sort-az');
   const clearBtn = document.getElementById('btn-clear-neu');
-  if (sortBtn) {
-    if (neuCount > 0) {
-      sortBtn.textContent = stashSort === 'newest' ? 'A–Z' : `✦ NEU (${neuCount})`;
-      sortBtn.style.borderColor = 'var(--accent)';
-      sortBtn.style.color = 'var(--accent)';
-    } else {
-      sortBtn.textContent = 'A–Z';
-      sortBtn.style.borderColor = '';
-      sortBtn.style.color = '';
-    }
+  if (neuBtn) {
+    neuBtn.textContent = neuCount > 0 ? `✦ NEU (${neuCount})` : '✦ NEU';
+    // Aktiver Button hervorheben
+    neuBtn.style.background = stashSort === 'newest' ? 'var(--warn-dim, rgba(255,180,0,.15))' : 'transparent';
+    neuBtn.style.borderColor = 'var(--warn)';
+    neuBtn.style.color = 'var(--warn)';
+  }
+  if (azBtn) {
+    azBtn.style.background = stashSort === 'az' ? 'var(--bg3)' : 'transparent';
+    azBtn.style.borderColor = stashSort === 'az' ? 'var(--accent2)' : '';
+    azBtn.style.color = stashSort === 'az' ? 'var(--text)' : '';
   }
   if (clearBtn) clearBtn.style.display = neuCount > 0 ? '' : 'none';
 }
@@ -1308,12 +1311,8 @@ function clearNeuIds() {
   toast('NEU-Liste geleert', 'info');
 }
 
-function toggleStashSort() {
-  stashSort = stashSort === 'newest' ? 'az' : 'newest';
-  const btn = document.getElementById('btn-stash-sort');
-  const neuCount = newItemIds.size;
-  if (stashSort === 'newest' && neuCount === 0) toast('Keine neuen Items', 'info');
-  else if (stashSort === 'newest') toast(`✦ ${neuCount} neue Items zuerst`, 'ok');
+function setStashSort(mode) {
+  stashSort = mode;
   updateNeuButton();
   filteredItems = sortStashItems(filteredItems);
   renderStash();
