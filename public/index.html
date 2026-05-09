@@ -2004,16 +2004,16 @@ async function setUserLang(account, lang) {
 function renderEmpfaenger(tr) {
   const isPool = !tr.to_account || tr.to_account === 'silverbase' || tr.to_account === 'unassigned';
   const total = tr.quantity_transferred;
-  const name  = iName(tr).replace(/'/g, "\'");
+  const name  = JSON.stringify(iName(tr)); // sicher gegen Apostrophe wie "Leviathan's"
   if (isPool) {
-    return `<button onclick="openAssignPopup(${tr.id},'${name}',${total},'silverbase')"
+    return `<button onclick="openAssignPopup(${tr.id},${name},${total},'silverbase')"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
              padding:3px 10px;background:transparent;cursor:pointer;white-space:nowrap;border-radius:3px;">
       + ${i18n('lager.zuteilen')}</button>`;
   }
   const acct = tr.to_account;
   const cls = acct === 'consta' ? 'consta' : 'junez';
-  return `<div class="empf-user-pill" onclick="openAssignPopup(${tr.id},'${name}',${total},'${acct}')" style="cursor:pointer;">
+  return `<div class="empf-user-pill" onclick="openAssignPopup(${tr.id},${name},${total},'${acct}')" style="cursor:pointer;">
     <span class="empf-avatar ${cls}">👤</span>
     <span class="empf-name ${cls}">${acct} ×${total}</span>
   </div>`;
