@@ -582,6 +582,7 @@
         </label>
         <button id="btn-merge" class="btn btn-outline btn-sm" onclick="mergeDuplicates()" style="display:none;" data-i18n="lager.merge">Duplikate zusammenführen</button>
         <span id="lager-refreshed" style="margin-left:auto;font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
+        <span id="view-debug" style="font-size:11px;font-family:monospace;color:var(--warn);padding:2px 6px;"></span>
         <button class="btn btn-outline btn-sm" onclick="loadTransfers()" title="Aktualisieren">↻</button>
       </div>
       <div class="panel" style="flex:1;overflow:auto;">
@@ -1497,9 +1498,16 @@ async function refreshReservedQtys() {
 
 // ── Transfers ──────────────────────────────────────────────────────────────
 async function loadTransfers() {
+  const dbg = document.getElementById('view-debug');
   try {
     const url = (showDone || ROLE === 'view') ? '/api/transfers?all=1' : '/api/transfers';
-    activeTransfers = await api('GET', url);
+    if (dbg) dbg.textContent = '';
+    const _resp = await fetch(url, { headers: { 'x-app-password': PASSWORD, 'Content-Type': 'application/json' } });
+    const _text = await _resp.text();
+    if (dbg) dbg.textContent = `API: HTTP ${_resp.status} | ${_text.length} Bytes | pw=${PASSWORD ? PASSWORD.substring(0,3)+'…' : 'LEER'}`;
+    if (!_resp.ok) throw new Error(_text.substring(0, 100));
+    activeTransfers = JSON.parse(_text);
+    if (dbg) dbg.textContent = `✓ ${activeTransfers.length} Transfers | pw=${PASSWORD ? PASSWORD.substring(0,3)+'…' : 'LEER'}`;
     renderTransfers();
     // Badge
     const badge = document.getElementById('badge-nach');
