@@ -12,6 +12,13 @@ export async function initDB() {
   await pool.query(`ALTER TABLE user_passwords ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`).catch(() => {});
   await pool.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`).catch(() => {});
   await pool.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS is_stackable BOOLEAN NOT NULL DEFAULT true`).catch(() => {});
+  // Reparatur: Split-Bug v1.2.23 hat is_stackable=false auf Nicht-Waffen gesetzt → zurücksetzen
+  // Waffen erkennt man an Namen wie Bettina, Vulcano, Tempest, Bobcat (enthalten IV/III/II/I am Ende)
+  await pool.query(`
+    UPDATE transfers SET is_stackable = true
+    WHERE is_stackable = false
+      AND item_name !~ '(Bettina|Vulcano|Tempest|Bobcat|Vanguard|Striker|Phantom|Havoc|Lynx|Raven)'
+  `).catch(() => {});
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS transfers (

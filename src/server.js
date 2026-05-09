@@ -45,7 +45,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '1.2.23';
+const APP_VERSION = '1.2.24';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -747,20 +747,21 @@ app.post('/api/transfers/:id/split', adminOnly, async (req, res) => {
     const qty = row.quantity_transferred;
     if (qty <= 1) return res.json({ split: 0, message: 'Bereits qty=1' });
 
-    // Original auf 1 setzen, markieren als Waffe
+    // Original auf qty=1 setzen (is_stackable bleibt unverändert)
     await pool.query(
-      `UPDATE transfers SET quantity_transferred = 1, is_stackable = false WHERE id = $1`,
+      `UPDATE transfers SET quantity_transferred = 1 WHERE id = $1`,
       [row.id]
     );
-    // (qty - 1) neue Zeilen
+    // (qty - 1) neue Zeilen mit gleichem is_stackable
     for (let i = 1; i < qty; i++) {
       await pool.query(
         `INSERT INTO transfers
            (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
             quantity_transferred, from_account, to_account, is_stackable, status, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,1,$7,$8,false,$9,$10)`,
+         VALUES ($1,$2,$3,$4,$5,$6,1,$7,$8,$9,$10,$11)`,
         [row.expedition_label, row.item_id, row.item_name, row.item_name_en,
-         row.item_type, row.icon_url, row.from_account, row.to_account, row.status, row.notes]
+         row.item_type, row.icon_url, row.from_account, row.to_account,
+         row.is_stackable, row.status, row.notes]
       );
     }
     res.json({ split: qty - 1 });
