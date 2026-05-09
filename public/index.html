@@ -1218,12 +1218,13 @@ async function loadStash() {
 
     // Persistente NEU-Liste: nur NEUE items hinzufügen, nie automatisch löschen
     const lastSnap = JSON.parse(localStorage.getItem('stash_snap') || '{}');
-    // newItemIds bleibt erhalten (aus localStorage geladen) – nur neue Items dazufügen
     const now = new Date().toISOString();
+    // Wenn keine NEU-Liste vorhanden: alle Items als NEU markieren
+    const noHistory = newItemIds.size === 0;
     allItems.forEach(item => {
       const id = item.id || item.item_id;
-      if (!lastSnap[id] || item.quantity > lastSnap[id]) {
-        if (!newItemIds.has(id)) newItemIds.set(id, now); // alter Timestamp bleibt erhalten
+      if (noHistory || !lastSnap[id] || item.quantity > lastSnap[id]) {
+        if (!newItemIds.has(id)) newItemIds.set(id, now);
       }
     });
     // Items die nicht mehr im Stash sind aus NEU-Liste entfernen
@@ -1311,10 +1312,12 @@ function updateNeuButton() {
 function clearNeuIds() {
   newItemIds = new Map();
   localStorage.setItem('stash_new_ids', '{}');
+  // Snap löschen damit beim nächsten Stash-Load alle Items wieder als NEU erkannt werden
+  localStorage.removeItem('stash_snap');
   updateNeuButton();
   filteredItems = sortStashItems(filteredItems);
   renderStash();
-  toast('NEU-Liste geleert', 'info');
+  toast('NEU-Liste geleert — beim nächsten Stash-Load werden alle Items als NEU markiert', 'info');
 }
 
 function setStashSort(mode) {
