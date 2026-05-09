@@ -1226,6 +1226,20 @@ async function loadStash() {
 
     stashItems = sortStashItems(allItems);
     document.getElementById('stash-meta').textContent = `${stashItems.length} ${i18n('stash.items')}`;
+    // NEU-Count im Sort-Button anzeigen
+    const neuCount = newItemIds.size;
+    const sortBtn = document.getElementById('btn-stash-sort');
+    if (sortBtn) {
+      if (neuCount > 0) {
+        sortBtn.textContent = stashSort === 'newest' ? 'A–Z' : `✦ NEU (${neuCount})`;
+        sortBtn.style.borderColor = 'var(--accent)';
+        sortBtn.style.color = 'var(--accent)';
+      } else {
+        sortBtn.textContent = 'A–Z';
+        sortBtn.style.borderColor = '';
+        sortBtn.style.color = '';
+      }
+    }
     document.getElementById('api-status').textContent = i18n('api.ok');
     document.getElementById('api-status').className = 'status-pill ok';
 
@@ -1275,7 +1289,19 @@ function sortStashItems(items) {
 function toggleStashSort() {
   stashSort = stashSort === 'newest' ? 'az' : 'newest';
   const btn = document.getElementById('btn-stash-sort');
-  if (btn) btn.textContent = stashSort === 'newest' ? 'A–Z' : '✦ Neu';
+  const neuCount = newItemIds.size;
+  if (btn) {
+    if (stashSort === 'newest') {
+      btn.textContent = 'A–Z';
+      btn.style.borderColor = ''; btn.style.color = '';
+      if (neuCount === 0) toast('Keine neuen Items seit letztem Load', 'info');
+      else toast(`✦ ${neuCount} neue Items zuerst`, 'ok');
+    } else {
+      btn.textContent = neuCount > 0 ? `✦ NEU (${neuCount})` : '✦ NEU';
+      btn.style.borderColor = neuCount > 0 ? 'var(--accent)' : '';
+      btn.style.color = neuCount > 0 ? 'var(--accent)' : '';
+    }
+  }
   filteredItems = sortStashItems(filteredItems);
   renderStash();
 }
