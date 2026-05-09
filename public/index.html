@@ -1142,10 +1142,7 @@ function applyRole() {
   } else if (ROLE === 'view') {
     pill.textContent = i18n('role.view');
     pill.className = 'status-pill';
-    // View-Rolle sieht immer alle Transfers (auch erledigte)
-    showDone = true;
-    const cbDone = document.getElementById('toggle-showdone');
-    if (cbDone) cbDone.checked = true;
+    // View-Rolle sieht immer alle Transfers (auch erledigte) - via loadTransfers()
   }
 
   document.getElementById('btn-logout').style.display = '';
@@ -1501,7 +1498,7 @@ async function refreshReservedQtys() {
 // ── Transfers ──────────────────────────────────────────────────────────────
 async function loadTransfers() {
   try {
-    const url = showDone ? '/api/transfers?all=1' : '/api/transfers';
+    const url = (showDone || ROLE === 'view') ? '/api/transfers?all=1' : '/api/transfers';
     activeTransfers = await api('GET', url);
     renderTransfers();
     // Badge
@@ -1526,7 +1523,7 @@ function renderTransfers() {
   // Filter by search + showDone
   const q = searchQuery.toLowerCase().trim();
   const visible = activeTransfers.filter(t => {
-    if (!showDone && t.status === 'done') return false;
+    if (!showDone && ROLE !== 'view' && t.status === 'done') return false;
     if (q && !iName(t).toLowerCase().includes(q) && !(t.item_name || '').toLowerCase().includes(q)) return false;
     return true;
   });
