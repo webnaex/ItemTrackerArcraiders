@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.8';
+const APP_VERSION = '2.0.9';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -311,6 +311,9 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
     });
 
     // Items normalisieren: itemId → id, icon_url aus CDN ableiten
+    // Einmalig raw-Keys loggen damit wir sehen was die API liefert
+    if (rawDe.length > 0) console.log('[Stash raw keys]', Object.keys(rawDe[0]).join(', '));
+
     const items = rawDe.map(item => ({
       id: item.itemId || item.id || item.item_id,
       name: { de: item.name, en: enNames[item.itemId || item.id || item.item_id] || item.name },
@@ -319,6 +322,7 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
       type: item.type || item.category || null,
       slotIndex: item.slotIndex,
       durabilityPercent: item.durabilityPercent,
+      maxStack: item.maxStack ?? item.maxStackCount ?? item.stackMaxQuantity ?? item.maxQuantity ?? item.stackSize ?? null,
     }));
 
     // Snapshot speichern
@@ -362,8 +366,8 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
 
       const { rows } = await pool.query(
         `INSERT INTO transfers
-          (expedition_label, item_id, item_name, item_name_en, item_type, icon_url, quantity_transferred, from_account, to_account, is_stackable)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          (expedition_label, item_id, item_name, item_name_en, item_type, icon_url, quantity_transferred, from_account, to_account, is_stackable, max_stack)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
          RETURNING *`,
         [
           expedition_label || 'aktuell',
@@ -376,6 +380,7 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
           'silverbase',
           target,
           item.is_stackable !== false,
+          (item.is_stackable !== false) ? (item.maxStack ?? 1) : 1,
         ]
       );
       inserted.push(rows[0]);
@@ -506,10 +511,10 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
       const { rows: r } = await pool.query(
         `INSERT INTO transfers
           (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
-           quantity_transferred, from_account, to_account, is_stackable, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+           quantity_transferred, from_account, to_account, is_stackable, max_stack, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
         [orig.expedition_label, orig.item_id, orig.item_name, orig.item_name_en,
-         orig.item_type, orig.icon_url, qty, orig.from_account, acct, orig.is_stackable, orig.created_at]
+         orig.item_type, orig.icon_url, qty, orig.from_account, acct, orig.is_stackable, orig.max_stack ?? 1, orig.created_at]
       );
       created.push(r[0]);
     }
@@ -518,10 +523,10 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
       const { rows: r } = await pool.query(
         `INSERT INTO transfers
           (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
-           quantity_transferred, from_account, to_account, is_stackable, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+           quantity_transferred, from_account, to_account, is_stackable, max_stack, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
         [orig.expedition_label, orig.item_id, orig.item_name, orig.item_name_en,
-         orig.item_type, orig.icon_url, remainder, orig.from_account, orig.from_account, orig.is_stackable, orig.created_at]
+         orig.item_type, orig.icon_url, remainder, orig.from_account, orig.from_account, orig.is_stackable, orig.max_stack ?? 1, orig.created_at]
       );
       created.push(r[0]);
     }
@@ -739,7 +744,11 @@ app.get('/api/stats/slots', async (req, res) => {
   try {
     // Stackable = 1 Slot pro Zeile; Waffen = qty Slots (jede Waffe = 1 Slot)
     const { rows } = await pool.query(`
-      SELECT to_account, SUM(CASE WHEN is_stackable THEN 1 ELSE quantity_transferred END) AS slots
+      SELECT to_account,
+        SUM(CASE
+          WHEN is_stackable THEN CEIL(quantity_transferred::numeric / GREATEST(max_stack, 1))
+          ELSE quantity_transferred
+        END) AS slots
       FROM transfers
       WHERE status IN ('pending', 'partial')
       GROUP BY to_account

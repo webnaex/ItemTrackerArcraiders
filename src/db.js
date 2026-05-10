@@ -12,6 +12,7 @@ export async function initDB() {
   await pool.query(`ALTER TABLE user_passwords ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`).catch(() => {});
   await pool.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`).catch(() => {});
   await pool.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS is_stackable BOOLEAN NOT NULL DEFAULT true`).catch(() => {});
+  await pool.query(`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS max_stack INTEGER NOT NULL DEFAULT 1`).catch(() => {});
   // Reparatur: is_stackable korrekt setzen – Waffen haben Röm. Ziffern am Ende (IV, III, II, I)
   // Alles ohne Röm. Ziffern am Ende ist stackbar (Reaktoren, Module, Munition usw.)
   await pool.query(`
