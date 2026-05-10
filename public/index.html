@@ -1128,7 +1128,7 @@ function applyRole() {
   if (ROLE === 'admin' || ROLE === 'view') {
     api('GET', '/api/admin/users').then(users => {
       ASSIGN_USERS = users
-        .filter(u => u.role === 'user')
+        .filter(u => u.role === 'user' || u.account === 'silverbase')
         .map((u, i) => ({
           account: u.account,
           label: u.account.charAt(0).toUpperCase() + u.account.slice(1),
