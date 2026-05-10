@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.19';
+const APP_VERSION = '2.0.20';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -785,8 +785,11 @@ app.post('/api/admin/fix-max-stack', adminOnly, async (req, res) => {
 
     for (const [itemId, ms] of Object.entries(maxStackMap)) {
       if (ms > 1) {
+        // item_id in transfers kann Nummer-Suffix haben (z.B. mushroom_251 statt mushroom)
         const r = await pool.query(
-          `UPDATE transfers SET max_stack = $1 WHERE item_id = $2 AND is_stackable = true`,
+          `UPDATE transfers SET max_stack = $1
+           WHERE REGEXP_REPLACE(item_id, '_[0-9]+$', '') = $2
+             AND is_stackable = true`,
           [ms, itemId]
         );
         updated += r.rowCount;
