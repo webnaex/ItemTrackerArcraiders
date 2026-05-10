@@ -581,6 +581,10 @@
           <span data-i18n="lager.showdone">Erledigte</span>
         </label>
         <button id="btn-merge" class="btn btn-outline btn-sm" onclick="mergeDuplicates()" style="display:none;" data-i18n="lager.merge">Duplikate zusammenführen</button>
+        <select id="lager-empf-filter" onchange="setEmpfFilter(this.value)"
+          style="padding:5px 10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:6px;font-size:13px;cursor:pointer;">
+          <option value="">Alle Empfänger</option>
+        </select>
         <span id="lager-refreshed" style="margin-left:auto;font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
         <button class="btn btn-outline btn-sm" onclick="loadTransfers()" title="Aktualisieren">↻</button>
       </div>
@@ -1044,6 +1048,7 @@ let stashSort = 'newest'; // 'newest' | 'az'
 let newItemIds = new Map(Object.entries(JSON.parse(localStorage.getItem('stash_new_ids') || '{}'))); // id → ISO-Timestamp
 let showDone = false;
 let searchQuery = '';
+let empfFilter = ''; // Empfänger-Filter für Lager
 let autoRefreshTimer = null;
 
 // ── Init: Default-Sprache vom Server laden ────────────────────────────────
@@ -1519,6 +1524,7 @@ async function loadTransfers() {
   try {
     const url = (showDone || ROLE === 'view') ? '/api/transfers?all=1' : '/api/transfers';
     activeTransfers = await api('GET', url);
+    updateEmpfFilterOptions();
     renderTransfers();
     // Badge
     const badge = document.getElementById('badge-nach');
@@ -1544,6 +1550,7 @@ function renderTransfers() {
   const visible = activeTransfers.filter(t => {
     if (!showDone && ROLE !== 'view' && t.status === 'done') return false;
     if (q && !iName(t).toLowerCase().includes(q) && !(t.item_name || '').toLowerCase().includes(q)) return false;
+    if (empfFilter && t.to_account !== empfFilter) return false;
     return true;
   });
 
@@ -1619,6 +1626,26 @@ function renderTransfers() {
 function onSearchInput(val) {
   searchQuery = val;
   renderTransfers();
+}
+
+function setEmpfFilter(val) {
+  empfFilter = val;
+  renderTransfers();
+}
+
+function updateEmpfFilterOptions() {
+  const sel = document.getElementById('lager-empf-filter');
+  if (!sel) return;
+  const accounts = [...new Set(activeTransfers.map(t => t.to_account).filter(a => a && a !== 'silverbase' && a !== 'unassigned'))].sort();
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Alle Empfänger</option>';
+  accounts.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a;
+    opt.textContent = a.charAt(0).toUpperCase() + a.slice(1);
+    if (a === current) opt.selected = true;
+    sel.appendChild(opt);
+  });
 }
 
 function toggleShowDone(checked) {
