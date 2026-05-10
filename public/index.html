@@ -2147,7 +2147,7 @@ function renderEmpfaenger(tr) {
   const total = tr.quantity_transferred;
   const name  = JSON.stringify(iName(tr)).replace(/"/g, '&quot;'); // safe für HTML-Attribute
   if (isPool) {
-    return `<button onclick="openAssignPopup(${tr.id},${name},${total},'silverbase')"
+    return `<button onclick="openAssignPopup(${tr.id},${name},${total},null)"
       style="border:1px dashed var(--border2);color:var(--text-muted);font-size:11px;
              padding:3px 10px;background:transparent;cursor:pointer;white-space:nowrap;border-radius:3px;">
       + ${i18n('lager.zuteilen')}</button>`;
