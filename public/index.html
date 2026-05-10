@@ -692,6 +692,7 @@
           <div style="font-size:13px;color:var(--text-dim);flex:1;">Alle Transfers unwiderruflich löschen (History, Lager, alles).</div>
           <button class="btn btn-outline btn-sm" onclick="purgeDeleted()" style="color:var(--danger);border-color:var(--danger);">🧹 Gelöschte bereinigen</button>
           <button class="btn btn-outline btn-sm" onclick="splitWeapons()" style="color:var(--warn);border-color:var(--warn);" title="Zusammengefasste Waffen wieder aufteilen">⚔️ Waffen aufteilen</button>
+          <button class="btn btn-outline btn-sm" onclick="fixMaxStack()" style="color:var(--accent);border-color:var(--accent);" title="max_stack aus Stash-Snapshots neu berechnen">🔧 Slots reparieren</button>
           <button class="btn btn-danger" onclick="resetAllTransfers()">🗑 Alle Transfers löschen</button>
         </div>
       </div>
@@ -1992,6 +1993,17 @@ async function loadAdminUsers() {
     list.innerHTML = `<div class="empty-state" style="color:var(--danger)">${err.message}</div>`;
   }
 }
+
+async function fixMaxStack() {
+    const btn = event.target;
+    btn.disabled = true; btn.textContent = '⏳ Läuft...';
+    try {
+      const d = await api('POST', '/api/admin/fix-max-stack');
+      alert(`✅ Fertig!\nSnapshots: ${d.snapshots?.length ?? 0}\nTransfers aktualisiert: ${d.updated}\nVerteilung: ${JSON.stringify(d.distribution)}`);
+      if (document.getElementById('page-usage')?.classList.contains('active')) loadUsage();
+    } catch(e) { alert('Fehler: ' + e.message); }
+    finally { btn.disabled = false; btn.textContent = '🔧 Slots reparieren'; }
+  }
 
 async function splitWeapons() {
     if (!confirm('Zusammengefasste Waffen-Transfers aufteilen? Der Stash wird kurz geladen um Waffen zu erkennen.')) return;
