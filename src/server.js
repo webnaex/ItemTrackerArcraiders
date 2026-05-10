@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.21';
+const APP_VERSION = '2.0.22';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -515,8 +515,10 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
     // Wenn alles auf einen Account und kein Rest → nur Account updaten
     if (entries.length === 1 && remainder === 0) {
       const [acct] = entries[0];
+      // Zuteilung an silverbase = zurück in den Pool → als 'done' markieren
+      const isDone = acct === 'silverbase' || acct === orig.from_account;
       const { rows: updated } = await pool.query(
-        'UPDATE transfers SET to_account = $1 WHERE id = $2 RETURNING *',
+        `UPDATE transfers SET to_account = $1${isDone ? `, status = 'done', returned_at = NOW(), quantity_returned = quantity_transferred` : ''} WHERE id = $2 RETURNING *`,
         [acct, id]
       );
       return res.json({ transfers: updated });
@@ -526,11 +528,12 @@ app.post('/api/transfers/:id/assign', adminOnly, async (req, res) => {
     await pool.query('DELETE FROM transfers WHERE id = $1', [id]);
     const created = [];
     for (const [acct, qty] of entries) {
+      const isSilver = acct === 'silverbase' || acct === orig.from_account;
       const { rows: r } = await pool.query(
         `INSERT INTO transfers
           (expedition_label, item_id, item_name, item_name_en, item_type, icon_url,
-           quantity_transferred, from_account, to_account, is_stackable, max_stack, created_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+           quantity_transferred, from_account, to_account, is_stackable, max_stack, created_at${isSilver ? ', status, quantity_returned, returned_at' : ''})
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12${isSilver ? `,'done',$7,NOW()` : ''}) RETURNING *`,
         [orig.expedition_label, orig.item_id, orig.item_name, orig.item_name_en,
          orig.item_type, orig.icon_url, qty, orig.from_account, acct, orig.is_stackable, orig.max_stack ?? 1, orig.created_at]
       );
