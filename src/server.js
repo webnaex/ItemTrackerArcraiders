@@ -58,7 +58,19 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.25';
+const APP_VERSION = '2.0.26';
+
+// In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
+const maxStackCache = {};
+function cacheMaxStack(items) {
+  items.forEach(item => {
+    const id = item.id || item.item_id;
+    const qty = item.quantity ?? item.qty ?? 0;
+    if (!id || qty <= 1) return;
+    const key = String(id).replace(/_[0-9]+$/, '');
+    if (qty > (maxStackCache[key] || 0)) maxStackCache[key] = qty;
+  });
+}
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -333,7 +345,8 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
       };
     });
 
-    // Snapshot speichern
+    // Cache befüllen + Snapshot speichern
+    cacheMaxStack(items);
     await pool.query(
       'INSERT INTO stash_snapshots (account, snapshot_data) VALUES ($1, $2)',
       [account, JSON.stringify(items)]
@@ -398,7 +411,11 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
           'silverbase',
           target,
           item.is_stackable !== false,
-          (item.is_stackable !== false) ? (item.maxStack ?? 1) : 1,
+          (() => {
+            if (item.is_stackable === false) return 1;
+            const key = String(item.id).replace(/_[0-9]+$/, '');
+            return maxStackCache[key] ?? item.maxStack ?? 1;
+          })(),
         ]
       );
       inserted.push(rows[0]);
@@ -902,7 +919,16 @@ app.delete('/api/admin/transfers/deleted', adminOnly, async (req, res) => {
 // ─── Server starten ───────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 
-initDB().then(() => {
+initDB().then(async () => {
+  // maxStack-Cache aus letztem Snapshot befüllen
+  try {
+    const { rows } = await pool.query(`
+      SELECT DISTINCT ON (account) snapshot_data FROM stash_snapshots ORDER BY account, taken_at DESC
+    `);
+    rows.forEach(r => cacheMaxStack(Array.isArray(r.snapshot_data) ? r.snapshot_data : []));
+    console.log('✅ maxStackCache:', Object.keys(maxStackCache).length, 'Items');
+  } catch(e) { console.warn('maxStackCache init:', e.message); }
+
   app.listen(PORT, () => {
     console.log(`🚀 TransferTracker läuft auf Port ${PORT}`);
   });
