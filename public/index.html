@@ -2164,8 +2164,20 @@ function renderAssignUsers() {
                color:var(--text);background:var(--bg3);border:1px solid var(--border2);padding:3px 4px;outline:none;">
       <button onclick="adjustAssign('${u.account}',1)"
         style="width:30px;height:30px;background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-size:16px;cursor:pointer;line-height:1;">+</button>
+      <button onclick="setAssignMax('${u.account}')"
+        style="height:30px;padding:0 10px;background:var(--bg3);border:1px solid var(--accent);color:var(--accent);
+               font-size:11px;font-family:var(--mono);font-weight:700;cursor:pointer;border-radius:3px;letter-spacing:.05em;">MAX</button>
     </div>
   `).join('');
+}
+
+function setAssignMax(account) {
+  const otherSum = Object.entries(assignQtys).filter(([a]) => a !== account).reduce((s,[,v]) => s+v, 0);
+  const maxVal = assignPopupTotal - otherSum;
+  assignQtys[account] = maxVal;
+  const el = document.getElementById('assign-qty-' + account);
+  if (el) el.value = maxVal;
+  updateAssignTotal();
 }
 
 function adjustAssign(account, delta) {
