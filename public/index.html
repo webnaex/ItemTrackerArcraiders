@@ -1351,6 +1351,16 @@ function renderStash() {
     return;
   }
 
+  // Vorberechnung: wie viele Items pro Name sind bereits per ID im Lager matched?
+  const idMatchedCountByName = {};
+  filteredItems.forEach(x => {
+    const xId = x.id || x.item_id;
+    const xKey = (x.name?.de || x.name || '').toLowerCase().trim();
+    if ((reservedQtys[xId] || 0) > 0) {
+      idMatchedCountByName[xKey] = (idMatchedCountByName[xKey] || 0) + 1;
+    }
+  });
+
   list.innerHTML = filteredItems.map(item => {
     const id = item.id || item.item_id;
     const name = sName(item);
@@ -1359,10 +1369,13 @@ function renderStash() {
     // Fallback: per item_name matchen (Stash-Slot-IDs wie queen_reactor_69 vs gespeicherter ID)
     const itemNameKey = (item.name?.de || item.name || '').toLowerCase().trim();
     const reservedByNameTotal = reservedByName[itemNameKey] || 0;
+    // Per-ID gematchte Items von der Name-Reservierung abziehen (kein Doppelzählen)
+    const alreadyMatchedById = idMatchedCountByName[itemNameKey] || 0;
+    const effectiveReservedByName = Math.max(0, reservedByNameTotal - alreadyMatchedById);
     // Wie viele gleichnamige Items kommen VOR diesem in der gefilterten Liste?
     const sameNameBefore = filteredItems.slice(0, filteredItems.indexOf(item))
       .filter(x => (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey).length;
-    const unavailByName = reservedById === 0 && sameNameBefore < reservedByNameTotal;
+    const unavailByName = reservedById === 0 && sameNameBefore < effectiveReservedByName;
     const reserved = reservedById;
     const availQty = Math.max(0, stashQty - reserved);
     const type = item.type || item.item_type || '';
