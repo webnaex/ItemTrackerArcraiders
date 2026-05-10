@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.15';
+const APP_VERSION = '2.0.16';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -800,7 +800,22 @@ app.post('/api/admin/fix-max-stack', adminOnly, async (req, res) => {
       GROUP BY max_stack ORDER BY max_stack
     `);
 
-    res.json({ snapshots: snaps, maxStackSample: Object.entries(maxStackMap).slice(0,10), updated, distribution: dist });
+    // Snapshot-Sample ausgeben zur Diagnose
+    const { rows: snapSample } = await pool.query(`
+      SELECT DISTINCT ON (account) account, taken_at,
+        (snapshot_data->0)::text AS first_item,
+        jsonb_array_length(snapshot_data) AS total_items,
+        (SELECT COUNT(*) FROM jsonb_array_elements(snapshot_data) e WHERE (e->>'quantity')::int > 1) AS items_with_qty_gt1
+      FROM stash_snapshots ORDER BY account, taken_at DESC
+    `);
+
+    // Transfers mit item_id prüfen die im Snapshot sind
+    const matchingIds = Object.keys(maxStackMap).slice(0, 5);
+    const { rows: transferSample } = matchingIds.length > 0
+      ? await pool.query(`SELECT item_id, item_name, max_stack, quantity_transferred FROM transfers WHERE item_id = ANY($1) LIMIT 10`, [matchingIds])
+      : { rows: [] };
+
+    res.json({ snapshots: snaps, snapSample, maxStackSample: Object.entries(maxStackMap).filter(([,v])=>v>1).slice(0,10), updated, distribution: dist, transferSample });
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
