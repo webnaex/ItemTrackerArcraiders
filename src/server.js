@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.26';
+const APP_VERSION = '2.0.27';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -352,12 +352,14 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
       [account, JSON.stringify(items)]
     );
 
-    // max_stack für bestehende Transfers aktualisieren (anhand item_id)
-    for (const [itemId, ms] of Object.entries(maxStackByItemId)) {
+    // max_stack für bestehende Transfers automatisch aktualisieren
+    for (const [key, ms] of Object.entries(maxStackCache)) {
       if (ms > 1) {
         await pool.query(
-          `UPDATE transfers SET max_stack = $1 WHERE item_id = $2 AND is_stackable = true`,
-          [ms, itemId]
+          `UPDATE transfers SET max_stack = $1
+           WHERE REGEXP_REPLACE(item_id, '_[0-9]+$', '') = $2
+             AND is_stackable = true AND max_stack < $1`,
+          [ms, key]
         ).catch(() => {});
       }
     }
