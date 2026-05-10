@@ -1357,13 +1357,13 @@ function renderStash() {
     return;
   }
 
-  // Vorberechnung: wie viele Items pro Name sind bereits per ID im Lager matched?
-  const idMatchedCountByName = {};
+  // Vorberechnung: welche Menge pro Name ist bereits per ID im Lager matched?
+  const idMatchedQtyByName = {};
   filteredItems.forEach(x => {
     const xId = x.id || x.item_id;
     const xKey = (x.name?.de || x.name || '').toLowerCase().trim();
     if ((reservedQtys[xId] || 0) > 0) {
-      idMatchedCountByName[xKey] = (idMatchedCountByName[xKey] || 0) + 1;
+      idMatchedQtyByName[xKey] = (idMatchedQtyByName[xKey] || 0) + (x.quantity ?? x.qty ?? 1);
     }
   });
 
@@ -1375,18 +1375,18 @@ function renderStash() {
     // Fallback: per item_name matchen (Stash-Slot-IDs wie queen_reactor_69 vs gespeicherter ID)
     const itemNameKey = (item.name?.de || item.name || '').toLowerCase().trim();
     const reservedByNameTotal = reservedByName[itemNameKey] || 0;
-    // Per-ID gematchte Items von der Name-Reservierung abziehen (kein Doppelzählen)
-    const alreadyMatchedById = idMatchedCountByName[itemNameKey] || 0;
-    const effectiveReservedByName = Math.max(0, reservedByNameTotal - alreadyMatchedById);
-    // Wie viele gleichnamige Items VOR diesem wurden NICHT per ID gematcht?
-    // Index aus .map() statt indexOf() → O(n) statt O(n²), kein Referenzproblem
-    const sameNameBeforeUnmatched = filteredItems.slice(0, itemIdx)
+    // Per-ID gematchte Menge von der Name-Reservierung abziehen (kein Doppelzählen)
+    const alreadyMatchedQtyById = idMatchedQtyByName[itemNameKey] || 0;
+    const effectiveReservedByName = Math.max(0, reservedByNameTotal - alreadyMatchedQtyById);
+    // Kumulative Menge gleichnamiger, nicht-ID-gematchter Items VOR diesem
+    const qtyBeforeUnmatched = filteredItems.slice(0, itemIdx)
       .filter(x => {
         const xKey = (x.name?.de || x.name || '').toLowerCase().trim();
         const xId  = x.id || x.item_id;
         return xKey === itemNameKey && (reservedQtys[xId] || 0) === 0;
-      }).length;
-    const unavailByName = reservedById === 0 && sameNameBeforeUnmatched < effectiveReservedByName;
+      })
+      .reduce((sum, x) => sum + (x.quantity ?? x.qty ?? 1), 0);
+    const unavailByName = reservedById === 0 && qtyBeforeUnmatched < effectiveReservedByName;
     const reserved = reservedById;
     const availQty = Math.max(0, stashQty - reserved);
     const type = item.type || item.item_type || '';
@@ -1426,9 +1426,13 @@ function toggleItem(id) {
   const itemNameKey = (item.name?.de || item.name || '').toLowerCase().trim();
   const itemIdx = filteredItems.findIndex(i => (i.id || i.item_id) === id);
   const alreadyMatchedById = Object.values(filteredItems).filter(x => (reservedQtys[x.id || x.item_id] || 0) > 0 && (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey).length;
-  const effectiveReservedByName = Math.max(0, (reservedByName[itemNameKey] || 0) - alreadyMatchedById);
-  const sameNameBeforeUnmatched = filteredItems.slice(0, itemIdx).filter(x => (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey && (reservedQtys[x.id || x.item_id] || 0) === 0).length;
-  const isUnavailByName = reserved === 0 && sameNameBeforeUnmatched < effectiveReservedByName;
+  const alreadyMatchedQtyByIdT = idMatchedQtyByName?.[itemNameKey] || (() => {
+    let q = 0;
+    filteredItems.forEach(x => { const xId = x.id || x.item_id; if ((x.name?.de||x.name||'').toLowerCase().trim()===itemNameKey && (reservedQtys[xId]||0)>0) q+=(x.quantity??x.qty??1); }); return q;
+  })();
+  const effectiveReservedByName = Math.max(0, (reservedByName[itemNameKey] || 0) - alreadyMatchedQtyByIdT);
+  const qtyBeforeUnmatchedT = filteredItems.slice(0, itemIdx).filter(x => (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey && (reservedQtys[x.id || x.item_id] || 0) === 0).reduce((s,x)=>s+(x.quantity??x.qty??1),0);
+  const isUnavailByName = reserved === 0 && qtyBeforeUnmatchedT < effectiveReservedByName;
   if ((availQty === 0 || isUnavailByName) && !selection[id]) return; // nicht verfügbar
 
   if (selection[id]) {
