@@ -1502,6 +1502,7 @@ async function confirmTransfer() {
     icon_url: item.icon_url || item.icon,
     quantity: qty,
     is_stackable: item.durabilityPercent == null, // Waffen haben durabilityPercent
+    maxStack: item.maxStack ?? 1,
   }));
 
   try {
