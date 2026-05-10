@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.9';
+const APP_VERSION = '2.0.10';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -746,15 +746,15 @@ app.get('/api/stats/slots', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT to_account,
         SUM(CASE
-          WHEN is_stackable THEN CEIL(quantity_transferred::numeric / GREATEST(max_stack, 1))
+          WHEN is_stackable THEN CEIL(quantity_transferred::numeric / GREATEST(COALESCE(max_stack, 1), 1))
           ELSE quantity_transferred
-        END) AS slots
+        END)::int AS slots
       FROM transfers
       WHERE status IN ('pending', 'partial')
       GROUP BY to_account
       ORDER BY slots DESC
     `);
-    const usedPerUser = rows.map(r => ({ account: r.to_account, slots: parseInt(r.slots) }));
+    const usedPerUser = rows.map(r => ({ account: r.to_account, slots: parseInt(r.slots) || 0 }));
     const totalUsed = usedPerUser.reduce((s, r) => s + r.slots, 0);
     res.json({ totalSlots: TOTAL_SLOTS, totalUsed, free: TOTAL_SLOTS - totalUsed, perUser: usedPerUser });
   } catch (err) {
