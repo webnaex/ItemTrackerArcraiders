@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.13';
+const APP_VERSION = '2.0.14';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -752,6 +752,56 @@ app.delete('/api/admin/transfers/all', adminOnly, async (req, res) => {
     await pool.query('DELETE FROM transfers');
     res.json({ success: true });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Debug: max_stack forcieren ──────────────────────────────────────────────
+app.post('/api/admin/fix-max-stack', adminOnly, async (req, res) => {
+  try {
+    // 1. Snapshots prüfen
+    const { rows: snaps } = await pool.query(`
+      SELECT DISTINCT ON (account) account, taken_at,
+        jsonb_array_length(snapshot_data) AS item_count
+      FROM stash_snapshots ORDER BY account, taken_at DESC
+    `);
+
+    // 2. max_stack aus Snapshots ableiten und updaten
+    const { rows: snapData } = await pool.query(`
+      SELECT DISTINCT ON (account) account, snapshot_data
+      FROM stash_snapshots ORDER BY account, taken_at DESC
+    `);
+
+    let updated = 0;
+    const maxStackMap = {};
+    for (const snap of snapData) {
+      const items = Array.isArray(snap.snapshot_data) ? snap.snapshot_data : [];
+      items.forEach(item => {
+        const id = item.id || item.item_id;
+        const qty = item.quantity ?? item.qty ?? 0;
+        if (id && qty > (maxStackMap[id] || 0)) maxStackMap[id] = qty;
+      });
+    }
+
+    for (const [itemId, ms] of Object.entries(maxStackMap)) {
+      if (ms > 1) {
+        const r = await pool.query(
+          `UPDATE transfers SET max_stack = $1 WHERE item_id = $2 AND is_stackable = true AND max_stack < $1`,
+          [ms, itemId]
+        );
+        updated += r.rowCount;
+      }
+    }
+
+    // 3. Aktuelle Verteilung ausgeben
+    const { rows: dist } = await pool.query(`
+      SELECT max_stack, COUNT(*) AS cnt FROM transfers
+      WHERE status IN ('pending','partial') AND is_stackable = true
+      GROUP BY max_stack ORDER BY max_stack
+    `);
+
+    res.json({ snapshots: snaps, maxStackSample: Object.entries(maxStackMap).slice(0,10), updated, distribution: dist });
+  } catch(err) {
     res.status(500).json({ error: err.message });
   }
 });
