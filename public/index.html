@@ -1377,10 +1377,15 @@ function renderStash() {
     // Per-ID gematchte Items von der Name-Reservierung abziehen (kein Doppelzählen)
     const alreadyMatchedById = idMatchedCountByName[itemNameKey] || 0;
     const effectiveReservedByName = Math.max(0, reservedByNameTotal - alreadyMatchedById);
-    // Wie viele gleichnamige Items kommen VOR diesem in der gefilterten Liste?
-    const sameNameBefore = filteredItems.slice(0, filteredItems.indexOf(item))
-      .filter(x => (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey).length;
-    const unavailByName = reservedById === 0 && sameNameBefore < effectiveReservedByName;
+    // Wie viele gleichnamige Items VOR diesem wurden NICHT per ID gematcht?
+    // (per-ID gematchte überspringen, damit sie nicht doppelt zählen)
+    const sameNameBeforeUnmatched = filteredItems.slice(0, filteredItems.indexOf(item))
+      .filter(x => {
+        const xKey = (x.name?.de || x.name || '').toLowerCase().trim();
+        const xId  = x.id || x.item_id;
+        return xKey === itemNameKey && (reservedQtys[xId] || 0) === 0;
+      }).length;
+    const unavailByName = reservedById === 0 && sameNameBeforeUnmatched < effectiveReservedByName;
     const reserved = reservedById;
     const availQty = Math.max(0, stashQty - reserved);
     const type = item.type || item.item_type || '';
