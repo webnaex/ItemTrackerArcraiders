@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -677,6 +677,10 @@ app.post('/api/admin/transfers/split-weapons', adminOnly, async (req, res) => {
 // ─── Duplikate zusammenführen ─────────────────────────────────────────────────
 app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
   try {
+    // Zuerst: is_stackable reparieren basierend auf Itemname (Waffen = röm. Zahlen am Ende)
+    await pool.query(`UPDATE transfers SET is_stackable = false WHERE item_name ~ '\\s(IV|III|II|I)$' AND is_stackable = true`).catch(() => {});
+    await pool.query(`UPDATE transfers SET is_stackable = true WHERE item_name !~ '\\s(IV|III|II|I)$' AND is_stackable = false`).catch(() => {});
+
     // Nur stapelbare Items zusammenführen (keine Waffen/Aufsätze)
     const { rows: groups } = await pool.query(`
       SELECT item_name, to_account, expedition_label,

@@ -2165,6 +2165,12 @@ function closeAssignPopup() {
 async function confirmAssign() {
   const assigned = Object.values(assignQtys).reduce((a,b) => a+b, 0);
   if (assigned === 0) { closeAssignPopup(); return; }
+  // Warnung wenn nicht alle Items zugeteilt
+  if (assigned < assignPopupTotal) {
+    const rest = assignPopupTotal - assigned;
+    const ok = confirm(`⚠ Nur ${assigned} von ${assignPopupTotal} zugeteilt — ${rest} bleiben im Pool.\nFortfahren?`);
+    if (!ok) return;
+  }
   try {
     await api('POST', `/api/transfers/${assignPopupId}/assign`, { assignments: assignQtys });
     closeAssignPopup();
