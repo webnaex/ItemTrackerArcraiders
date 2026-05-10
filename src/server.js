@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.7';
+const APP_VERSION = '2.0.8';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -737,9 +737,9 @@ app.delete('/api/admin/transfers/all', adminOnly, async (req, res) => {
 app.get('/api/stats/slots', async (req, res) => {
   const TOTAL_SLOTS = 280;
   try {
-    // Jede Transfer-Zeile = 1 Slot, unabh. von Menge
+    // Stackable = 1 Slot pro Zeile; Waffen = qty Slots (jede Waffe = 1 Slot)
     const { rows } = await pool.query(`
-      SELECT to_account, COUNT(*) AS slots
+      SELECT to_account, SUM(CASE WHEN is_stackable THEN 1 ELSE quantity_transferred END) AS slots
       FROM transfers
       WHERE status IN ('pending', 'partial')
       GROUP BY to_account
