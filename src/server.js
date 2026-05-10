@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.18';
+const APP_VERSION = '2.0.19';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -809,11 +809,10 @@ app.post('/api/admin/fix-max-stack', adminOnly, async (req, res) => {
       FROM stash_snapshots ORDER BY account, taken_at DESC
     `);
 
-    // Transfers mit item_id prüfen die im Snapshot sind
-    const matchingIds = Object.keys(maxStackMap).slice(0, 5);
-    const { rows: transferSample } = matchingIds.length > 0
-      ? await pool.query(`SELECT item_id, item_name, max_stack, quantity_transferred FROM transfers WHERE item_id = ANY($1) LIMIT 10`, [matchingIds])
-      : { rows: [] };
+    // Zeige was tatsächlich in transfers.item_id steht
+    const { rows: transferSample } = await pool.query(
+      `SELECT item_id, item_name, max_stack, quantity_transferred, is_stackable FROM transfers WHERE status IN ('pending','partial') LIMIT 10`
+    );
 
     res.json({ snapshots: snaps, snapSample, maxStackSample: Object.entries(maxStackMap).filter(([,v])=>v>1).slice(0,10), updated, distribution: dist, transferSample });
   } catch(err) {
