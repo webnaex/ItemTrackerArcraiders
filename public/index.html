@@ -1366,7 +1366,7 @@ function renderStash() {
     }
   });
 
-  list.innerHTML = filteredItems.map(item => {
+  list.innerHTML = filteredItems.map((item, itemIdx) => {
     const id = item.id || item.item_id;
     const name = sName(item);
     const stashQty = item.quantity ?? item.qty ?? 0;
@@ -1378,8 +1378,8 @@ function renderStash() {
     const alreadyMatchedById = idMatchedCountByName[itemNameKey] || 0;
     const effectiveReservedByName = Math.max(0, reservedByNameTotal - alreadyMatchedById);
     // Wie viele gleichnamige Items VOR diesem wurden NICHT per ID gematcht?
-    // (per-ID gematchte überspringen, damit sie nicht doppelt zählen)
-    const sameNameBeforeUnmatched = filteredItems.slice(0, filteredItems.indexOf(item))
+    // Index aus .map() statt indexOf() → O(n) statt O(n²), kein Referenzproblem
+    const sameNameBeforeUnmatched = filteredItems.slice(0, itemIdx)
       .filter(x => {
         const xKey = (x.name?.de || x.name || '').toLowerCase().trim();
         const xId  = x.id || x.item_id;
@@ -1401,7 +1401,7 @@ function renderStash() {
         ? `<img class="item-icon" src="${icon}" alt="" onerror="this.style.display='none'">`
         : `<div class="item-icon-placeholder">📦</div>`}
       <div class="item-info">
-        <div class="item-name">${name} ${isNew && !unavail ? (() => { const ts = newItemIds.get(id); const d = ts ? new Date(ts) : null; const label = d ? d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : 'NEU'; return `<span style="font-size:9px;font-family:var(--mono);background:var(--warn);color:#000;padding:1px 6px;border-radius:3px;margin-left:5px;vertical-align:middle;white-space:nowrap;">✦ ${label}</span>`; })() : ''}</div>
+        <div class="item-name">${name} ${isNew ? (() => { const ts = newItemIds.get(id); const d = ts ? new Date(ts) : null; const label = d ? d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : 'NEU'; return `<span style="font-size:9px;font-family:var(--mono);background:var(--warn);color:#000;padding:1px 6px;border-radius:3px;margin-left:5px;vertical-align:middle;white-space:nowrap;">✦ ${label}</span>`; })() : ''}</div>
         <div class="item-meta">${unavail
           ? `<span style="color:var(--warn);">⚠ ${i18n('stash.reserved')}</span>`
           : `${type}${type && id ? ' · ' : ''}${id || ''}`
@@ -1421,7 +1421,14 @@ function toggleItem(id) {
   const reserved = reservedQtys[id] || 0;
   const stashQty = item.quantity ?? item.qty ?? 0;
   const availQty = Math.max(0, stashQty - reserved);
-  if (availQty === 0 && !selection[id]) return; // nicht verfügbar
+  // Prüfe auch name-basierte Reservierung (verhindert Auswahl von "bereits im Lager"-Items)
+  const itemNameKey = (item.name?.de || item.name || '').toLowerCase().trim();
+  const itemIdx = filteredItems.findIndex(i => (i.id || i.item_id) === id);
+  const alreadyMatchedById = Object.values(filteredItems).filter(x => (reservedQtys[x.id || x.item_id] || 0) > 0 && (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey).length;
+  const effectiveReservedByName = Math.max(0, (reservedByName[itemNameKey] || 0) - alreadyMatchedById);
+  const sameNameBeforeUnmatched = filteredItems.slice(0, itemIdx).filter(x => (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey && (reservedQtys[x.id || x.item_id] || 0) === 0).length;
+  const isUnavailByName = reserved === 0 && sameNameBeforeUnmatched < effectiveReservedByName;
+  if ((availQty === 0 || isUnavailByName) && !selection[id]) return; // nicht verfügbar
 
   if (selection[id]) {
     delete selection[id];
@@ -1468,7 +1475,7 @@ function updateQty(id, val) {
     const itemId = item.id || item.item_id;
     const reserved = reservedQtys[itemId] || 0;
     const stashQty = item.quantity ?? item.qty ?? 999;
-    const maxAvail = Math.max(1, stashQty - reserved);
+    const maxAvail = Math.max(0, stashQty - reserved);
     selection[id].qty = Math.max(1, Math.min(parseInt(val) || 1, maxAvail));
   }
 }
