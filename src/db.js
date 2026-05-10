@@ -72,6 +72,36 @@ export async function initDB() {
     );
   `);
   console.log('✅ DB initialisiert');
+
+  // max_stack aus letztem Stash-Snapshot nachträglich befüllen (einmalig)
+  try {
+    const { rows: snaps } = await pool.query(`
+      SELECT DISTINCT ON (account) account, snapshot_data
+      FROM stash_snapshots
+      ORDER BY account, taken_at DESC
+    `);
+    for (const snap of snaps) {
+      const items = Array.isArray(snap.snapshot_data) ? snap.snapshot_data : [];
+      // max qty pro item_id = max_stack
+      const maxStackByItemId = {};
+      items.forEach(item => {
+        const id = item.id || item.item_id;
+        const qty = item.quantity ?? item.qty ?? 0;
+        if (id && qty > (maxStackByItemId[id] || 0)) maxStackByItemId[id] = qty;
+      });
+      for (const [itemId, ms] of Object.entries(maxStackByItemId)) {
+        if (ms > 1) {
+          await pool.query(
+            `UPDATE transfers SET max_stack = $1 WHERE item_id = $2 AND is_stackable = true AND max_stack < $1`,
+            [ms, itemId]
+          ).catch(() => {});
+        }
+      }
+    }
+    console.log('✅ max_stack aus Snapshots aktualisiert');
+  } catch(e) {
+    console.warn('max_stack Migration:', e.message);
+  }
 }
 
 export default pool;
