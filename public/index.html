@@ -1505,7 +1505,7 @@ async function confirmTransfer() {
   }));
 
   try {
-    await api('POST', '/api/transfers', { expedition_label, to_account: 'silverbase', items });
+    await api('POST', '/api/transfers', { expedition_label, items });
     selection = {};
     // Reservierte Mengen sofort neu berechnen → verhindert Doppel-Transfer
     await refreshReservedQtys();
@@ -1649,7 +1649,7 @@ function setEmpfFilter(val) {
 function updateEmpfFilterOptions() {
   const sel = document.getElementById('lager-empf-filter');
   if (!sel) return;
-  const accounts = [...new Set(activeTransfers.map(t => t.to_account).filter(a => a && a !== 'silverbase' && a !== 'unassigned'))].sort();
+  const accounts = [...new Set(activeTransfers.map(t => t.to_account).filter(a => a && a !== 'unassigned'))].sort();
   const current = sel.value;
   sel.innerHTML = '<option value="">Alle Empfänger</option>';
   accounts.forEach(a => {
@@ -1828,7 +1828,7 @@ async function loadHistory() {
     list.innerHTML = data.map(t => {
       const statusKey = t.status === 'deleted' ? 'deleted' : t.status === 'partial' ? 'partial' : (t.status === 'done' ? 'done' : 'pending');
       const date = new Date(t.created_at).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit', year:'numeric' });
-      const acct = t.to_account && t.to_account !== 'silverbase' && t.to_account !== 'unassigned' ? t.to_account : null;
+      const acct = t.to_account && t.to_account !== 'unassigned' ? t.to_account : null;
       const cls = acct === 'consta' ? 'consta' : 'junez';
       const deletedDate = t.deleted_at ? new Date(t.deleted_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
       return `<tr class="${t.status === 'done' || t.status === 'deleted' ? 'tr-done' : ''}">
@@ -2131,7 +2131,7 @@ async function setUserLang(account, lang) {
 
 // ── EMPFÄNGER Spalte ──────────────────────────────────────────────────────
 function renderEmpfaengerReadonly(tr) {
-  const isPool = !tr.to_account || tr.to_account === 'silverbase' || tr.to_account === 'unassigned';
+  const isPool = !tr.to_account || tr.to_account === 'unassigned';
   if (isPool) return `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">— tba</span>`;
   const acct = tr.to_account;
   return `<div class="empf-user-pill" style="pointer-events:none;">
@@ -2141,7 +2141,7 @@ function renderEmpfaengerReadonly(tr) {
 }
 
 function renderEmpfaenger(tr) {
-  const isPool = !tr.to_account || tr.to_account === 'silverbase' || tr.to_account === 'unassigned';
+  const isPool = !tr.to_account || tr.to_account === 'unassigned';
   const total = tr.quantity_transferred;
   const name  = JSON.stringify(iName(tr)).replace(/"/g, '&quot;'); // safe für HTML-Attribute
   if (isPool) {
