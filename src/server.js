@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.11';
+const APP_VERSION = '2.0.12';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -311,25 +311,43 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
     });
 
     // Items normalisieren: itemId → id, icon_url aus CDN ableiten
-    // Einmalig raw-Keys loggen damit wir sehen was die API liefert
-    if (rawDe.length > 0) console.log('[Stash raw keys]', Object.keys(rawDe[0]).join(', '));
+    // maxStack pro Item aus Stash ableiten: max(qty) über alle Slots des gleichen Items
+    const maxStackByItemId = {};
+    rawDe.forEach(item => {
+      const id = item.itemId || item.id || item.item_id;
+      const qty = item.quantity ?? item.qty ?? 0;
+      if (id && qty > (maxStackByItemId[id] || 0)) maxStackByItemId[id] = qty;
+    });
 
-    const items = rawDe.map(item => ({
-      id: item.itemId || item.id || item.item_id,
-      name: { de: item.name, en: enNames[item.itemId || item.id || item.item_id] || item.name },
-      quantity: item.quantity ?? item.qty ?? 0,
-      icon_url: `https://cdn.arctracker.io/items/v2/${item.itemId || item.id || item.item_id}.png`,
-      type: item.type || item.category || null,
-      slotIndex: item.slotIndex,
-      durabilityPercent: item.durabilityPercent,
-      maxStack: item.maxStack ?? item.maxStackCount ?? item.stackMaxQuantity ?? item.maxQuantity ?? item.stackSize ?? null,
-    }));
+    const items = rawDe.map(item => {
+      const id = item.itemId || item.id || item.item_id;
+      return {
+        id,
+        name: { de: item.name, en: enNames[id] || item.name },
+        quantity: item.quantity ?? item.qty ?? 0,
+        icon_url: `https://cdn.arctracker.io/items/v2/${id}.png`,
+        type: item.type || item.category || null,
+        slotIndex: item.slotIndex,
+        durabilityPercent: item.durabilityPercent,
+        maxStack: maxStackByItemId[id] || 1,
+      };
+    });
 
     // Snapshot speichern
     await pool.query(
       'INSERT INTO stash_snapshots (account, snapshot_data) VALUES ($1, $2)',
       [account, JSON.stringify(items)]
     );
+
+    // max_stack für bestehende Transfers aktualisieren (anhand item_id)
+    for (const [itemId, ms] of Object.entries(maxStackByItemId)) {
+      if (ms > 1) {
+        await pool.query(
+          `UPDATE transfers SET max_stack = $1 WHERE item_id = $2 AND is_stackable = true`,
+          [ms, itemId]
+        ).catch(() => {});
+      }
+    }
 
     res.json({ account, items, count: items.length });
   } catch (err) {
@@ -742,9 +760,10 @@ app.delete('/api/admin/transfers/all', adminOnly, async (req, res) => {
 app.get('/api/stats/slots', async (req, res) => {
   const TOTAL_SLOTS = 280;
   try {
-    // 1 Transfer-Zeile = 1 Slot (Waffen nie gemergt, Stackables 1 Zeile pro Typ)
+    // Slots = CEIL(qty / max_stack) pro Transfer – korrekt für gestapelte Items
     const { rows } = await pool.query(`
-      SELECT to_account, COUNT(*)::int AS slots
+      SELECT to_account,
+        SUM(CEIL(quantity_transferred::numeric / GREATEST(COALESCE(max_stack, 1), 1)))::int AS slots
       FROM transfers
       WHERE status IN ('pending', 'partial')
       GROUP BY to_account
