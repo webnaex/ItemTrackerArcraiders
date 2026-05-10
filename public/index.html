@@ -2001,7 +2001,8 @@ async function fixMaxStack() {
       const d = await api('POST', '/api/admin/fix-max-stack');
       const snapInfo = (d.snapSample||[]).map(s=>`${s.account}: ${s.total_items} items, ${s.items_with_qty_gt1} mit qty>1`).join('\n');
       const stackInfo = (d.maxStackSample||[]).map(([id,v])=>`${id}: ${v}`).join('\n') || 'keine items mit qty>1 gefunden';
-      alert(`✅ Fertig!\nSnapshots: ${d.snapshots?.length ?? 0}\nTransfers aktualisiert: ${d.updated}\n\nSnapshot-Inhalt:\n${snapInfo}\n\nmax_stack>1 Items:\n${stackInfo}\n\nVerteilung: ${JSON.stringify(d.distribution)}`);
+      const transferInfo = (d.transferSample||[]).map(t=>`${t.item_id} | ms=${t.max_stack} | qty=${t.quantity_transferred} | ${t.item_name}`).join('\n') || 'keine transfers gefunden';
+      alert(`✅ Fertig!\nSnapshots: ${d.snapshots?.length ?? 0}\nTransfers aktualisiert: ${d.updated}\n\nSnapshot Items (qty>1):\n${stackInfo}\n\nTransfer item_ids (sample):\n${transferInfo}\n\nVerteilung: ${JSON.stringify(d.distribution)}`);
       if (document.getElementById('page-usage')?.classList.contains('active')) loadUsage();
     } catch(e) { alert('Fehler: ' + e.message); }
     finally { btn.disabled = false; btn.textContent = '🔧 Slots reparieren'; }

@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.17';
+const APP_VERSION = '2.0.18';
 const SERVER_START = new Date().toISOString();
 app.get('/api/version', (req, res) => {
   res.json({ version: APP_VERSION, timestamp: SERVER_START });
@@ -786,7 +786,7 @@ app.post('/api/admin/fix-max-stack', adminOnly, async (req, res) => {
     for (const [itemId, ms] of Object.entries(maxStackMap)) {
       if (ms > 1) {
         const r = await pool.query(
-          `UPDATE transfers SET max_stack = $1 WHERE item_id = $2 AND is_stackable = true AND max_stack < $1`,
+          `UPDATE transfers SET max_stack = $1 WHERE item_id = $2 AND is_stackable = true`,
           [ms, itemId]
         );
         updated += r.rowCount;
