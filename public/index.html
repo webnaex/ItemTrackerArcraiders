@@ -574,7 +574,7 @@
     <div class="page" id="page-nach" style="flex-direction:column;gap:16px;">
       <div class="top-bar" style="flex-wrap:wrap;gap:8px;">
         <div class="panel-title" style="font-family:var(--head);font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;" data-i18n="lager.title">Offene Transfers</div>
-        <input id="lager-search" type="text" placeholder="Suchen..." oninput="onSearchInput(this.value)"
+        <input id="lager-search" type="text" placeholder="Suchen..." data-i18n-ph="lager.search" oninput="onSearchInput(this.value)"
           style="padding:5px 10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:6px;font-size:13px;width:160px;">
         <label style="display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-dim);cursor:pointer;user-select:none;">
           <input type="checkbox" id="toggle-showdone" onchange="toggleShowDone(this.checked)" style="cursor:pointer;">
@@ -583,7 +583,7 @@
         <button id="btn-merge" class="btn btn-outline btn-sm" onclick="mergeDuplicates()" style="display:none;" data-i18n="lager.merge">Duplikate zusammenführen</button>
         <select id="lager-empf-filter" onchange="setEmpfFilter(this.value)"
           style="padding:5px 10px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);border-radius:6px;font-size:13px;cursor:pointer;">
-          <option value="">Alle Empfänger</option>
+          <option value="" data-i18n="lager.all_recipients">Alle Empfänger</option>
         </select>
         <span id="lager-refreshed" style="margin-left:auto;font-size:11px;color:var(--text-muted);white-space:nowrap;"></span>
         <button class="btn btn-outline btn-sm" onclick="loadTransfers()" title="Aktualisieren">↻</button>
@@ -814,6 +814,7 @@ const T = {
     'admin.add_btn':   '+ Anlegen',
     'admin.del_user':  'User löschen',
     'lager.search':  'Suchen...',
+    'lager.all_recipients': 'Alle Empfänger',
     'lager.showdone': 'Erledigte',
     'lager.merge':   'Duplikate zusammenführen',
     'lager.merged':  'Duplikate zusammengeführt',
@@ -919,6 +920,7 @@ const T = {
     'admin.add_btn':   '+ Add',
     'admin.del_user':  'Delete user',
     'lager.search':  'Search...',
+    'lager.all_recipients': 'All Recipients',
     'lager.showdone': 'Completed',
     'lager.merge':   'Merge duplicates',
     'lager.merged':  'Duplicates merged',
@@ -1663,7 +1665,7 @@ function updateEmpfFilterOptions() {
   if (!sel) return;
   const accounts = [...new Set(activeTransfers.map(t => t.to_account).filter(a => a && a !== 'unassigned'))].sort();
   const current = sel.value;
-  sel.innerHTML = '<option value="">Alle Empfänger</option>';
+  sel.innerHTML = `<option value="">${i18n('lager.all_recipients')}</option>`;
   accounts.forEach(a => {
     const opt = document.createElement('option');
     opt.value = a;
