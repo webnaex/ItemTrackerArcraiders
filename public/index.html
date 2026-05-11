@@ -1364,8 +1364,10 @@ function renderStash() {
   filteredItems.forEach(x => {
     const xId = x.id || x.item_id;
     const xKey = (x.name?.de || x.name || '').toLowerCase().trim();
-    if ((reservedQtys[xId] || 0) > 0) {
-      idMatchedQtyByName[xKey] = (idMatchedQtyByName[xKey] || 0) + (x.quantity ?? x.qty ?? 1);
+    const xResById = reservedQtys[xId] || 0;
+    if (xResById > 0) {
+      // Addiere die Transfer-Menge (nicht stashQty), damit Over-Reservation nicht auf andere Slots überspringt
+      idMatchedQtyByName[xKey] = (idMatchedQtyByName[xKey] || 0) + xResById;
     }
   });
 
@@ -1432,7 +1434,6 @@ function toggleItem(id) {
   // Prüfe auch name-basierte Reservierung (verhindert Auswahl von "bereits im Lager"-Items)
   const itemNameKey = (item.name?.de || item.name || '').toLowerCase().trim();
   const itemIdx = filteredItems.findIndex(i => (i.id || i.item_id) === id);
-  const alreadyMatchedById = Object.values(filteredItems).filter(x => (reservedQtys[x.id || x.item_id] || 0) > 0 && (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey).length;
   const effectiveReservedByName = Math.max(0, (reservedByName[itemNameKey] || 0) - (idMatchedQtyByName[itemNameKey] || 0));
   const qtyBeforeUnmatchedT = filteredItems.slice(0, itemIdx).filter(x => (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey && (reservedQtys[x.id || x.item_id] || 0) === 0).reduce((s,x)=>s+(x.quantity??x.qty??1),0);
   const nameReservedExtraT = (reserved === 0)
@@ -2345,8 +2346,9 @@ function debugStashReservations() {
   filteredItems.forEach(x => {
     const xId = x.id || x.item_id;
     const xKey = (x.name?.de || x.name || '').toLowerCase().trim();
-    if ((reservedQtys[xId] || 0) > 0) {
-      localIdMatched[xKey] = (localIdMatched[xKey] || 0) + (x.quantity ?? x.qty ?? 1);
+    const xResById = reservedQtys[xId] || 0;
+    if (xResById > 0) {
+      localIdMatched[xKey] = (localIdMatched[xKey] || 0) + xResById;
     }
   });
 
