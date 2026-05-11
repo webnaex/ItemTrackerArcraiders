@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.2';
+const APP_VERSION = '2.1.3';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};

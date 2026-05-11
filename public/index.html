@@ -1390,10 +1390,15 @@ function renderStash() {
     const unavailByName = reservedById === 0 && qtyBeforeUnmatched < effectiveReservedByName;
     const reserved = reservedById;
     const availQty = Math.max(0, stashQty - reserved);
+    // Wie viel der Name-Reservierung trifft diesen Slot (merged oder nicht)?
+    const nameReservedExtra = (reservedById === 0)
+      ? Math.max(0, Math.min(stashQty, effectiveReservedByName - qtyBeforeUnmatched))
+      : 0;
+    const effectiveAvailQty = Math.max(0, availQty - nameReservedExtra);
     const type = item.type || item.item_type || '';
     const icon = item.icon_url || item.icon || '';
     const sel = selection[id];
-    const unavail = (availQty === 0 && !sel) || (unavailByName && !sel);
+    const unavail = effectiveAvailQty === 0 && !sel;
 
     const isNew = newItemIds.has(id);
     return `<div class="item-row ${sel ? 'selected' : ''} ${unavail ? 'item-unavail' : ''}"
@@ -1410,7 +1415,7 @@ function renderStash() {
         }</div>
       </div>
       <div class="item-qty" style="${unavail ? 'color:var(--danger);' : (reserved > 0 || unavailByName) ? 'color:var(--warn);' : ''}">
-        ${reserved > 0 ? `<span style="font-size:10px;color:var(--text-muted);">${stashQty}−${reserved}=</span> ` : ''}${availQty}
+        ${reserved > 0 ? `<span style="font-size:10px;color:var(--text-muted);">${stashQty}−${reserved}=</span> ` : ''}${effectiveAvailQty}
       </div>
     </div>`;
   }).join('');
@@ -1429,13 +1434,16 @@ function toggleItem(id) {
   const alreadyMatchedById = Object.values(filteredItems).filter(x => (reservedQtys[x.id || x.item_id] || 0) > 0 && (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey).length;
   const effectiveReservedByName = Math.max(0, (reservedByName[itemNameKey] || 0) - (idMatchedQtyByName[itemNameKey] || 0));
   const qtyBeforeUnmatchedT = filteredItems.slice(0, itemIdx).filter(x => (x.name?.de || x.name || '').toLowerCase().trim() === itemNameKey && (reservedQtys[x.id || x.item_id] || 0) === 0).reduce((s,x)=>s+(x.quantity??x.qty??1),0);
-  const isUnavailByName = reserved === 0 && qtyBeforeUnmatchedT < effectiveReservedByName;
-  if ((availQty === 0 || isUnavailByName) && !selection[id]) return; // nicht verfügbar
+  const nameReservedExtraT = (reserved === 0)
+    ? Math.max(0, Math.min(stashQty, effectiveReservedByName - qtyBeforeUnmatchedT))
+    : 0;
+  const effectiveAvailQtyT = Math.max(0, availQty - nameReservedExtraT);
+  if (effectiveAvailQtyT === 0 && !selection[id]) return; // nicht verfügbar
 
   if (selection[id]) {
     delete selection[id];
   } else {
-    selection[id] = { item, qty: availQty };
+    selection[id] = { item, qty: effectiveAvailQtyT };
   }
   renderStash();
   renderSelection();
