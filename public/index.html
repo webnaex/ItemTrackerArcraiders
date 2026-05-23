@@ -490,7 +490,7 @@
   <div class="login-box">
     <h1>TransferTracker</h1>
     <div class="subtitle">// ARC RAIDERS · ITEM LOGISTICS</div>
-    <input type="password" id="pw-input" placeholder="Passwort eingeben …" data-i18n-ph="login.placeholder" autocomplete="current-password">
+    <input type="password" id="pw-input" placeholder="Passwort eingeben …" data-i18n-ph="login.placeholder" autocomplete="off">
     <button class="btn-primary" onclick="doLogin()" data-i18n="login.btn">ZUGANG ANFORDERN</button>
     <div class="login-error" id="login-error" data-i18n="login.error">Falsches Passwort.</div>
     <div id="app-version" style="margin-top:20px;font-family:var(--mono);font-size:10px;color:var(--text-dim);letter-spacing:0.12em;">VERSION —</div>
@@ -710,7 +710,7 @@
             <input id="new-user-account" type="text" placeholder="accountname" maxlength="20"
               style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:13px;width:140px;"
               onkeydown="if(event.key==='Enter') createUser()">
-            <input id="new-user-pw" type="password" placeholder="Passwort (min. 3)"
+            <input id="new-user-pw" type="password" autocomplete="new-password" placeholder="Passwort (min. 3)"
               style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:13px;width:160px;"
               onkeydown="if(event.key==='Enter') createUser()">
             <select id="new-user-role"
@@ -1987,7 +1987,7 @@ async function loadAdminUsers() {
           ${u.account}${u.role==='view'?' <span style="font-size:10px;opacity:0.6;">(view)</span>':''}
         </div>
         <div style="flex:1;display:flex;gap:8px;align-items:center;min-width:200px;">
-          <input type="password" id="pw-${u.account}" placeholder="${u.hasPassword ? i18n('admin.set_ph') : i18n('admin.no_pw')}"
+          <input type="password" id="pw-${u.account}" autocomplete="new-password" placeholder="${u.hasPassword ? i18n('admin.set_ph') : i18n('admin.no_pw')}"
             style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;font-family:var(--mono);font-size:13px;"
             onkeydown="if(event.key==='Enter') setUserPassword('${u.account}')">
           <button class="btn btn-sm btn-primary" onclick="setUserPassword('${u.account}')">${i18n('admin.set')}</button>
