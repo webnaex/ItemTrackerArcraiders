@@ -1637,8 +1637,8 @@ function renderTransfers() {
           ${!done
             ? (ROLE !== 'view'
                 ? `<div style="display:flex;align-items:center;gap:5px;">
-                    <input class="qty-input" type="number" min="1" max="${total}" value="${total}"
-                      id="ret-qty-${tr.id}" style="width:48px;" onclick="event.stopPropagation()">
+                    <input class="qty-input" type="number" min="1" max="${total - returned}" value="${total - returned}"
+                      id="ret-qty-${tr.id}" data-returned="${returned}" style="width:48px;" onclick="event.stopPropagation()">
                     <button class="btn btn-ok btn-sm" onclick="returnItem(${tr.id})">✓</button>
                     ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>${total > 1 ? `<button class="btn btn-outline btn-sm" onclick="splitTransfer(${tr.id})" title="Aufteilen in ${total}×1" style="color:var(--warn);border-color:var(--warn);padding:2px 6px;">✂</button>` : ''}` : ''}
                   </div>`
@@ -1715,8 +1715,10 @@ async function mergeDuplicates() {
 
 async function returnItem(id) {
   const input = document.getElementById(`ret-qty-${id}`);
-  const quantity = parseInt(input?.value) || 0;
-  if (!quantity) return;
+  const addQty = parseInt(input?.value) || 0;
+  if (!addQty) return;
+  const alreadyReturned = parseInt(input?.dataset?.returned) || 0;
+  const quantity = alreadyReturned + addQty;
 
   if (!confirm(i18n('confirm.return'))) return;
 
