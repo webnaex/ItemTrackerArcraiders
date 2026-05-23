@@ -1867,8 +1867,8 @@ async function loadHistory() {
           <span style="color:var(--warn);">${t.quantity_transferred}</span>
         </td>
         <td style="font-family:var(--mono);font-size:10px;color:var(--text-dim);white-space:nowrap;">${date}</td>
-        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${t.status==='deleted' ? 'color:var(--danger);' : t.returned_at ? 'color:var(--ok);' : 'color:var(--text-muted);'}">
-          ${t.status==='deleted' ? deletedDate : t.returned_at ? new Date(t.returned_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—'}
+        <td style="font-family:var(--mono);font-size:10px;white-space:nowrap;${t.status==='deleted' ? 'color:var(--danger);' : t.returned_at ? (t.status==='partial' ? 'color:var(--warn);' : 'color:var(--ok);') : 'color:var(--text-muted);'}">
+          ${t.status==='deleted' ? deletedDate : t.returned_at ? new Date(t.returned_at).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'2-digit'}) + (t.status==='partial' ? ' ∂' : '') : '—'}
         </td>
       </tr>`;
     }).join('');

@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.6';
+const APP_VERSION = '2.1.7';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -460,12 +460,12 @@ app.get('/api/transfers/history', async (req, res) => {
     let rows;
     if (role === 'user') {
       ({ rows } = await pool.query(
-        `SELECT * FROM transfers WHERE to_account = $1 ORDER BY created_at DESC LIMIT 200`,
+        `SELECT * FROM transfers WHERE to_account = $1 ORDER BY GREATEST(COALESCE(returned_at, created_at), created_at) DESC LIMIT 200`,
         [account]
       ));
     } else {
       ({ rows } = await pool.query(
-        `SELECT * FROM transfers ORDER BY created_at DESC LIMIT 200`
+        `SELECT * FROM transfers ORDER BY GREATEST(COALESCE(returned_at, created_at), created_at) DESC LIMIT 200`
       ));
     }
     res.json(rows);
@@ -492,7 +492,7 @@ app.patch('/api/transfers/:id/return', notView, async (req, res) => {
       `UPDATE transfers
        SET quantity_returned = $1,
            status = CASE WHEN $1 >= quantity_transferred THEN 'done' ELSE 'partial' END,
-           returned_at = CASE WHEN $1 >= quantity_transferred THEN NOW() ELSE NULL END
+           returned_at = NOW()
        WHERE id = $2
        RETURNING *`,
       [quantity, id]
