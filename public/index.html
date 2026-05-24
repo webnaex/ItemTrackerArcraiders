@@ -1106,21 +1106,15 @@ async function doLogin() {
   applyRole();
   document.getElementById('btn-lang').textContent = LANG === 'de' ? 'EN' : 'DE';
   applyLang();
-  document.getElementById('login-screen').classList.add('hidden');
+  const ls = document.getElementById('login-screen');
+  if (ls) ls.remove(); // aus DOM entfernen → kein pw-input mehr → Chrome fragt nicht mehr
   document.getElementById('app').classList.add('visible');
   loadTransfers();
 }
 
 function doLogout() {
-  PASSWORD = ''; ROLE = ''; USER_ACCOUNT = null;
-  stashItems = []; filteredItems = []; selection = {}; activeTransfers = [];
-  document.getElementById('btn-logout').style.display = 'none';
-  document.getElementById('api-status').textContent = 'API BEREIT';
-  document.getElementById('api-status').className = 'status-pill ok';
-  document.getElementById('pw-input').value = '';
-  document.getElementById('login-error').style.display = 'none';
-  document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('app').classList.remove('visible');
+  // Seite neu laden → Login-Screen wird neu gerendert, kein alter State
+  window.location.reload();
 }
 
 function applyRole() {
