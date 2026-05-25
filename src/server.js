@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.10';
+const APP_VERSION = '2.1.11';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -490,8 +490,8 @@ app.patch('/api/transfers/:id/return', notView, async (req, res) => {
 
     const { rows } = await pool.query(
       `UPDATE transfers
-       SET quantity_returned = $1,
-           status = CASE WHEN $1 >= quantity_transferred THEN 'done' ELSE 'partial' END,
+       SET quantity_returned = LEAST(quantity_transferred, quantity_returned + $1),
+           status = CASE WHEN LEAST(quantity_transferred, quantity_returned + $1) >= quantity_transferred THEN 'done' ELSE 'partial' END,
            returned_at = NOW()
        WHERE id = $2
        RETURNING *`,
@@ -589,6 +589,29 @@ app.post('/api/transfers/:id/undo-return', notView, async (req, res) => {
        SET quantity_returned = 0, status = 'pending', returned_at = NULL
        WHERE id = $1 RETURNING *`,
       [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Transfer nicht gefunden' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Menge erhöhen / "dazu buchen" (Admin only) ─────────────────────────────
+app.patch('/api/transfers/:id/add-qty', adminOnly, async (req, res) => {
+  const { id } = req.params;
+  const { add } = req.body; // positive Zahl
+  const delta = parseInt(add);
+  if (!delta || delta <= 0) return res.status(400).json({ error: 'add muss > 0 sein' });
+  try {
+    const { rows } = await pool.query(
+      `UPDATE transfers
+       SET quantity_transferred = quantity_transferred + $1,
+           status = CASE WHEN quantity_returned >= quantity_transferred + $1 THEN 'done'
+                         WHEN quantity_returned > 0 THEN 'partial'
+                         ELSE status END
+       WHERE id = $2 RETURNING *`,
+      [delta, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Transfer nicht gefunden' });
     res.json(rows[0]);

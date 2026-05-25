@@ -1632,9 +1632,9 @@ function renderTransfers() {
             ? (ROLE !== 'view'
                 ? `<div style="display:flex;align-items:center;gap:5px;">
                     <input class="qty-input" type="number" min="1" max="${total - returned}" value="${total - returned}"
-                      id="ret-qty-${tr.id}" data-returned="${returned}" style="width:48px;" onclick="event.stopPropagation()">
+                      id="ret-qty-${tr.id}" style="width:48px;" onclick="event.stopPropagation()">
                     <button class="btn btn-ok btn-sm" onclick="returnItem(${tr.id})">✓</button>
-                    ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>${total > 1 ? `<button class="btn btn-outline btn-sm" onclick="splitTransfer(${tr.id})" title="Aufteilen in ${total}×1" style="color:var(--warn);border-color:var(--warn);padding:2px 6px;">✂</button>` : ''}` : ''}
+                    ${ROLE === 'admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteTransfer(${tr.id})">✕</button>${total > 1 ? `<button class="btn btn-outline btn-sm" onclick="splitTransfer(${tr.id})" title="Aufteilen in ${total}×1" style="color:var(--warn);border-color:var(--warn);padding:2px 6px;">✂</button>` : ''}<button class="btn btn-outline btn-sm" onclick="addQtyTransfer(${tr.id})" title="Menge erhöhen (dazu buchen)" style="color:#8af;border-color:#8af;padding:2px 6px;">+</button>` : ''}
                   </div>`
                 : `<span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);">⟳ ${total}</span>`)
             : `<span class="status-badge done">${i18n('status.done')}</span>`}
@@ -1709,10 +1709,8 @@ async function mergeDuplicates() {
 
 async function returnItem(id) {
   const input = document.getElementById(`ret-qty-${id}`);
-  const addQty = parseInt(input?.value) || 0;
-  if (!addQty) return;
-  const alreadyReturned = parseInt(input?.dataset?.returned) || 0;
-  const quantity = alreadyReturned + addQty;
+  const quantity = parseInt(input?.value) || 0;  // delta: wie viele JETZT zurückgeben
+  if (!quantity) return;
 
   if (!confirm(i18n('confirm.return'))) return;
 
@@ -1729,6 +1727,18 @@ async function returnItem(id) {
         toast(err.message, 'err');
       }
     });
+  } catch (err) {
+    toast(err.message, 'err');
+  }
+}
+
+async function addQtyTransfer(id) {
+  const add = parseInt(prompt('Wie viele Items dazu buchen?'));
+  if (!add || add <= 0) return;
+  try {
+    await api('PATCH', `/api/transfers/${id}/add-qty`, { add });
+    await loadTransfers();
+    toast(`+${add} hinzugefügt`, 'ok');
   } catch (err) {
     toast(err.message, 'err');
   }
