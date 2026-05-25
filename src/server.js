@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.11';
+const APP_VERSION = '2.1.12';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -589,6 +589,31 @@ app.post('/api/transfers/:id/undo-return', notView, async (req, res) => {
        SET quantity_returned = 0, status = 'pending', returned_at = NULL
        WHERE id = $1 RETURNING *`,
       [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Transfer nicht gefunden' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Rückgabe-Zähler korrigieren (Admin only) ───────────────────────────────
+app.patch('/api/transfers/:id/correct-return', adminOnly, async (req, res) => {
+  const { id } = req.params;
+  const { quantity } = req.body;
+  const qty = parseInt(quantity);
+  if (isNaN(qty) || qty < 0) return res.status(400).json({ error: 'Ungültige Menge' });
+  try {
+    const { rows } = await pool.query(
+      `UPDATE transfers
+       SET quantity_returned = LEAST($1, quantity_transferred),
+           status = CASE WHEN LEAST($1, quantity_transferred) >= quantity_transferred THEN 'done'
+                         WHEN LEAST($1, quantity_transferred) > 0 THEN 'partial'
+                         ELSE 'pending' END,
+           returned_at = CASE WHEN LEAST($1, quantity_transferred) > 0 THEN COALESCE(returned_at, NOW())
+                               ELSE NULL END
+       WHERE id = $2 RETURNING *`,
+      [qty, id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Transfer nicht gefunden' });
     res.json(rows[0]);
