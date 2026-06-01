@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.15';
+const APP_VERSION = '2.1.16';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -771,13 +771,16 @@ app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
     await pool.query(`UPDATE transfers SET is_stackable = false WHERE item_name ~ '\\s(IV|III|II|I)$' AND is_stackable = true`).catch(() => {});
     await pool.query(`UPDATE transfers SET is_stackable = true WHERE item_name !~ '\\s(IV|III|II|I)$' AND is_stackable = false`).catch(() => {});
 
-    // Nur stapelbare Items zusammenführen (keine Waffen/Aufsätze)
+    // Stapelbare Items zusammenführen: Waffen ausschließen per Namenspattern (röm. Zahlen)
+    // is_stackable-Spalte nicht als Filter – kann fehlerhaft gesetzt sein
     const { rows: groups } = await pool.query(`
       SELECT item_name, to_account, expedition_label,
              array_agg(id ORDER BY created_at) AS ids,
              SUM(quantity_transferred) AS total_qty
       FROM transfers
-      WHERE status = 'pending' AND is_stackable = true
+      WHERE status = 'pending'
+        AND quantity_returned = 0
+        AND item_name !~ '\\s(IV|III|II|I)$'
       GROUP BY item_name, to_account, expedition_label
       HAVING COUNT(*) > 1
     `);
