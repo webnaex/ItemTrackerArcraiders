@@ -706,6 +706,7 @@
           <button class="btn btn-outline btn-sm" onclick="splitWeapons()" style="color:var(--warn);border-color:var(--warn);" title="Zusammengefasste Waffen wieder aufteilen">⚔️ Waffen aufteilen</button>
           <button class="btn btn-outline btn-sm" onclick="fixMaxStack()" style="color:var(--accent);border-color:var(--accent);" title="max_stack aus Stash-Snapshots neu berechnen">🔧 Slots reparieren</button>
           <button class="btn btn-outline btn-sm" onclick="debugStashReservations()" style="color:#8af;border-color:#8af;" title="Zeigt Reservierungsberechnung pro Stash-Item">🔍 Verfügbarkeit debuggen</button>
+          <button class="btn btn-outline btn-sm" onclick="debugMerge()" style="color:#fa8;border-color:#fa8;" title="Zeigt warum Duplikate nicht zusammengeführt werden">🔍 Merge debuggen</button>
           <button class="btn btn-danger" onclick="resetAllTransfers()">🗑 Alle Transfers löschen</button>
         </div>
       </div>
@@ -2368,6 +2369,28 @@ function toast(msg, type = 'info') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.className = type; }, 3000);
 }
+async function debugMerge() {
+  try {
+    const data = await api('GET', '/api/admin/debug-merge');
+    if (!data.length) { alert('Keine aktiven nicht-Waffen Transfers gefunden.'); return; }
+    const rows = data.map(r =>
+      `${r.item_name} | ${r.to_account} | exp:${r.expedition_label} | status:${r.status} | stackable:${r.is_stackable} | qty:${r.quantity_transferred} | ret:${r.qty_returned}`
+    ).join('\n');
+    // Gruppierung prüfen
+    const groups = {};
+    data.forEach(r => {
+      const k = `${r.item_name}||${r.to_account}||${r.expedition_label}`;
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(r);
+    });
+    const dupes = Object.entries(groups).filter(([,v]) => v.length > 1);
+    const dupeInfo = dupes.length
+      ? '\n\nDUPLIKATE GEFUNDEN (sollten mergebar sein):\n' + dupes.map(([k,v]) => `${k} → ${v.length}x`).join('\n')
+      : '\n\nKeine Gruppen mit >1 Item gefunden (gleicher Name+Account+Expedition).';
+    alert('MERGE DEBUG\n\n' + rows + dupeInfo);
+  } catch(err) { alert('Fehler: ' + err.message); }
+}
+
 function debugStashReservations() {
   // Baut eine Tabelle mit den Reservierungswerten für alle Stash-Items
   if (!filteredItems || !filteredItems.length) {

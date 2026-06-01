@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.18';
+const APP_VERSION = '2.1.19';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -812,6 +812,19 @@ app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
         [removeIds]
       );
       merged += removeIds.length;
+    }
+    if (merged === 0 && groups.length === 0) {
+      // Debug: zeige was die DB für pending Wächter-ähnliche Items sieht
+      const { rows: dbg } = await pool.query(`
+        SELECT id, item_name, to_account, expedition_label,
+               status, is_stackable, quantity_transferred,
+               COALESCE(quantity_returned,0) AS qty_returned
+        FROM transfers
+        WHERE status NOT IN ('done','deleted')
+          AND item_name !~ '\\s(IV|III|II|I)$'
+        ORDER BY item_name, to_account
+      `);
+      return res.json({ merged: 0, debug: dbg });
     }
     res.json({ merged });
   } catch (err) {
