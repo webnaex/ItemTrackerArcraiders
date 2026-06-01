@@ -318,6 +318,18 @@
     font-family: var(--mono); font-size: 11px; white-space: nowrap;
     margin-bottom: 3px;
   }
+  .empf-user-pill[onclick] {
+    padding: 2px 6px 2px 2px; border-radius: 4px;
+    border: 1px solid transparent; transition: border-color .15s, background .15s;
+  }
+  .empf-user-pill[onclick]:hover {
+    border-color: var(--border2); background: var(--bg3); cursor: pointer;
+  }
+  .empf-user-pill[onclick]::after {
+    content: ' ✎'; font-size: 9px; color: var(--text-muted); opacity: 0;
+    transition: opacity .15s;
+  }
+  .empf-user-pill[onclick]:hover::after { opacity: 1; }
   .empf-user-pill:last-child { margin-bottom: 0; }
   .empf-avatar {
     width: 15px; height: 15px; border-radius: 50%;
