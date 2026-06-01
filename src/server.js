@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.20';
+const APP_VERSION = '2.1.21';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -800,17 +800,21 @@ app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
       GROUP BY item_name, to_account, expedition_label
       HAVING COUNT(*) > 1
     `);
+    console.log('[merge] groups found:', groups.length, groups.map(g=>g.item_name+'/'+g.to_account+' ids:'+g.ids));
     let merged = 0;
     for (const g of groups) {
       const [keepId, ...removeIds] = g.ids;
-      await pool.query(
-        `UPDATE transfers SET quantity_transferred = $1 WHERE id = $2`,
-        [g.total_qty, keepId]
+      console.log('[merge] merging', g.item_name, 'keepId:', keepId, 'removeIds:', removeIds, 'total:', g.total_qty);
+      const upd = await pool.query(
+        `UPDATE transfers SET quantity_transferred = $1, status = CASE WHEN status = 'partial' THEN 'pending' ELSE status END WHERE id = $2`,
+        [parseInt(g.total_qty), keepId]
       );
-      await pool.query(
+      console.log('[merge] update rows:', upd.rowCount);
+      const del = await pool.query(
         `DELETE FROM transfers WHERE id = ANY($1)`,
         [removeIds]
       );
+      console.log('[merge] delete rows:', del.rowCount);
       merged += removeIds.length;
     }
     if (merged === 0 && groups.length === 0) {
