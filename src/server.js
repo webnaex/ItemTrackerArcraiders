@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.16';
+const APP_VERSION = '2.1.17';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -779,7 +779,7 @@ app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
              SUM(quantity_transferred) AS total_qty
       FROM transfers
       WHERE status = 'pending'
-        AND quantity_returned = 0
+        AND COALESCE(quantity_returned, 0) = 0
         AND item_name !~ '\\s(IV|III|II|I)$'
       GROUP BY item_name, to_account, expedition_label
       HAVING COUNT(*) > 1
