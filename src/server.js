@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.17';
+const APP_VERSION = '2.1.18';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -765,6 +765,22 @@ app.post('/api/admin/transfers/split-weapons', adminOnly, async (req, res) => {
 });
 
 // ─── Duplikate zusammenführen ─────────────────────────────────────────────────
+app.get('/api/admin/debug-merge', adminOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT id, item_name, to_account, expedition_label,
+             status, is_stackable, quantity_transferred,
+             quantity_returned, COALESCE(quantity_returned,0) AS qty_ret_safe
+      FROM transfers
+      WHERE status NOT IN ('done','deleted')
+      ORDER BY item_name, to_account
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/transfers/merge-duplicates', adminOnly, async (req, res) => {
   try {
     // Zuerst: is_stackable reparieren basierend auf Itemname (Waffen = röm. Zahlen am Ende)
