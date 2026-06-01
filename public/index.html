@@ -2372,11 +2372,8 @@ function toast(msg, type = 'info') {
 async function debugMerge() {
   try {
     const data = await api('GET', '/api/admin/debug-merge');
-    if (!data.length) { alert('Keine aktiven nicht-Waffen Transfers gefunden.'); return; }
-    const rows = data.map(r =>
-      `${r.item_name} | ${r.to_account} | exp:${r.expedition_label} | status:${r.status} | stackable:${r.is_stackable} | qty:${r.quantity_transferred} | ret:${r.qty_returned}`
-    ).join('\n');
-    // Gruppierung prüfen
+    if (!data.length) { toast('Keine aktiven Transfers gefunden.','info'); return; }
+    // Gruppen berechnen
     const groups = {};
     data.forEach(r => {
       const k = `${r.item_name}||${r.to_account}||${r.expedition_label}`;
@@ -2384,11 +2381,42 @@ async function debugMerge() {
       groups[k].push(r);
     });
     const dupes = Object.entries(groups).filter(([,v]) => v.length > 1);
-    const dupeInfo = dupes.length
-      ? '\n\nDUPLIKATE GEFUNDEN (sollten mergebar sein):\n' + dupes.map(([k,v]) => `${k} → ${v.length}x`).join('\n')
-      : '\n\nKeine Gruppen mit >1 Item gefunden (gleicher Name+Account+Expedition).';
-    alert('MERGE DEBUG\n\n' + rows + dupeInfo);
-  } catch(err) { alert('Fehler: ' + err.message); }
+    // HTML-Table in Overlay anzeigen
+    const existing = document.getElementById('debug-merge-overlay');
+    if (existing) existing.remove();
+    const ov = document.createElement('div');
+    ov.id = 'debug-merge-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);overflow:auto;padding:24px;';
+    ov.innerHTML = `
+      <div style="max-width:1100px;margin:0 auto;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;padding:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <span style="font-family:var(--head);font-size:16px;font-weight:900;color:var(--warn);">🔍 MERGE DEBUG</span>
+          <button onclick="document.getElementById('debug-merge-overlay').remove()" style="background:transparent;border:1px solid var(--border2);color:var(--text);padding:4px 12px;cursor:pointer;border-radius:4px;">✕ Schließen</button>
+        </div>
+        ${dupes.length ? `<div style="color:var(--ok);margin-bottom:12px;font-family:var(--mono);font-size:12px;">✓ ${dupes.length} Duplikat-Gruppe(n) gefunden – sollten mergebar sein:<br>${dupes.map(([k,v])=>`  ${k.replace(/\|\|/g,' | ')} → ${v.length}×`).join('<br>')}</div>` : '<div style="color:var(--danger);margin-bottom:12px;font-family:var(--mono);font-size:12px;">✗ Keine Duplikat-Gruppen gefunden (unterschiedl. Name, Account oder Expedition).</div>'}
+        <table style="width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;">
+          <thead><tr style="border-bottom:1px solid var(--border2);color:var(--text-muted);">
+            <th style="text-align:left;padding:4px 8px;">Item</th>
+            <th style="padding:4px 8px;">Account</th>
+            <th style="padding:4px 8px;">Expedition</th>
+            <th style="padding:4px 8px;">Status</th>
+            <th style="padding:4px 8px;">Stackable</th>
+            <th style="padding:4px 8px;">qty_transferred</th>
+            <th style="padding:4px 8px;">qty_returned</th>
+          </tr></thead>
+          <tbody>${data.map(r=>`<tr style="border-bottom:1px solid var(--border);${groups[r.item_name+'||'+r.to_account+'||'+r.expedition_label].length>1?'background:rgba(0,200,0,0.05)':''}">
+            <td style="padding:4px 8px;color:var(--text);">${r.item_name}</td>
+            <td style="padding:4px 8px;color:var(--accent);">${r.to_account}</td>
+            <td style="padding:4px 8px;color:var(--text-dim);">${r.expedition_label}</td>
+            <td style="padding:4px 8px;color:${r.status==='pending'?'var(--ok)':'var(--warn)'};">${r.status}</td>
+            <td style="padding:4px 8px;color:${r.is_stackable?'var(--ok)':'var(--danger)'};">${r.is_stackable}</td>
+            <td style="padding:4px 8px;text-align:right;">${r.quantity_transferred}</td>
+            <td style="padding:4px 8px;text-align:right;color:${r.quantity_returned>0?'var(--warn)':'var(--text-dim)'};">${r.quantity_returned ?? 'NULL'}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+    document.body.appendChild(ov);
+  } catch(err) { toast('Fehler: ' + err.message, 'err'); }
 }
 
 function debugStashReservations() {
