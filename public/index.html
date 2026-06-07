@@ -699,6 +699,7 @@
           <div class="panel-header">
             <div class="panel-title">🌐 Deutsche Übersetzungen (Overrides)</div>
             <button class="btn btn-outline btn-sm" onclick="loadNameOverrides()" style="margin-left:auto;">↻</button>
+            <button class="btn btn-outline btn-sm" onclick="applyNameOverrides()" style="color:var(--accent);border-color:var(--accent);" title="Alle Overrides rückwirkend auf bestehende Transfers anwenden">↩ Anwenden</button>
             <button class="btn btn-accent btn-sm" onclick="addNameOverride()">+ Übersetzung</button>
           </div>
           <div class="panel-body">
@@ -2428,6 +2429,15 @@ async function deleteNameOverride(enName) {
     await api('DELETE', `/api/admin/name-overrides/${encodeURIComponent(enName)}`);
     await loadNameOverrides();
     toast('Übersetzung gelöscht', 'ok');
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+async function applyNameOverrides() {
+  if (!confirm('Alle gespeicherten Übersetzungen auf bestehende Transfers anwenden?')) return;
+  try {
+    const r = await api('POST', '/api/admin/name-overrides/apply');
+    await loadTransfers();
+    toast(`✅ ${r.updated} Transfer(s) umbenannt`, 'ok');
   } catch (err) { toast(err.message, 'err'); }
 }
 

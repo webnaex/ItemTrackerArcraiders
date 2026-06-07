@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.23';
+const APP_VERSION = '2.1.24';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -320,6 +320,7 @@ app.post('/api/admin/name-overrides', adminOnly, async (req, res) => {
        ON CONFLICT (item_name_en) DO UPDATE SET item_name_de = $2`,
       [item_name_en.trim(), item_name_de.trim()]
     );
+    invalidateNameOverridesCache();
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -327,8 +328,29 @@ app.post('/api/admin/name-overrides', adminOnly, async (req, res) => {
 app.delete('/api/admin/name-overrides/:en', adminOnly, async (req, res) => {
   try {
     await pool.query('DELETE FROM item_name_overrides WHERE item_name_en = $1', [req.params.en]);
+    invalidateNameOverridesCache();
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+
+// ─── Name-Overrides rückwirkend auf bestehende Transfers anwenden ─────────────
+app.post('/api/admin/name-overrides/apply', adminOnly, async (req, res) => {
+  try {
+    invalidateNameOverridesCache();
+    const overrides = await getNameOverrides();
+    let updated = 0;
+    for (const [enName, deName] of Object.entries(overrides)) {
+      const { rowCount } = await pool.query(
+        `UPDATE transfers SET item_name = $1 WHERE LOWER(item_name) = LOWER($2) AND item_name != $1`,
+        [deName, enName]
+      );
+      updated += rowCount;
+    }
+    res.json({ updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/stash/:account', adminOnly, async (req, res) => {
@@ -477,6 +499,28 @@ app.post('/api/transfers', adminOnly, async (req, res) => {
 });
 
 // ─── Aktive Transfers abrufen ──────────────────────────────────────────────────
+// ─── Name-Override Helper ─────────────────────────────────────────────────────
+let _nameOverridesCache = null;
+let _nameOverridesCacheAt = 0;
+async function getNameOverrides() {
+  const now = Date.now();
+  if (_nameOverridesCache && (now - _nameOverridesCacheAt) < 60_000) return _nameOverridesCache;
+  const { rows } = await pool.query('SELECT item_name_en, item_name_de FROM item_name_overrides');
+  _nameOverridesCache = {};
+  rows.forEach(r => { _nameOverridesCache[r.item_name_en.toLowerCase()] = r.item_name_de; });
+  _nameOverridesCacheAt = now;
+  return _nameOverridesCache;
+}
+function invalidateNameOverridesCache() { _nameOverridesCache = null; }
+
+function applyOverridesToRows(rows, overrides) {
+  return rows.map(r => {
+    const key = (r.item_name || '').toLowerCase();
+    if (overrides[key]) return { ...r, item_name: overrides[key] };
+    return r;
+  });
+}
+
 app.get('/api/transfers', async (req, res) => {
   const { role, account } = req.user;
   const showAll = req.query.all === '1';
@@ -493,7 +537,8 @@ app.get('/api/transfers', async (req, res) => {
         : `SELECT * FROM transfers WHERE status NOT IN ('done','deleted') ORDER BY created_at DESC`;
       ({ rows } = await pool.query(q));
     }
-    res.json(rows);
+    const overrides = await getNameOverrides();
+    res.json(applyOverridesToRows(rows, overrides));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -514,7 +559,8 @@ app.get('/api/transfers/history', async (req, res) => {
         `SELECT * FROM transfers ORDER BY GREATEST(COALESCE(returned_at, created_at), created_at) DESC LIMIT 200`
       ));
     }
-    res.json(rows);
+    const overrides = await getNameOverrides();
+    res.json(applyOverridesToRows(rows, overrides));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
