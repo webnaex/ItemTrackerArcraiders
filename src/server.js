@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.21';
+const APP_VERSION = '2.1.22';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -701,6 +701,22 @@ app.post('/api/transfers/backfill-names', adminOnly, async (req, res) => {
       updated += rowCount;
     }
     res.json({ updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ─── Item umbenennen (Admin) ──────────────────────────────────────────────────
+app.post('/api/admin/rename-item', adminOnly, async (req, res) => {
+  const { old_name, new_name } = req.body;
+  if (!old_name || !new_name) return res.status(400).json({ error: 'old_name und new_name erforderlich' });
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE transfers SET item_name = $1 WHERE LOWER(item_name) = LOWER($2)`,
+      [new_name.trim(), old_name.trim()]
+    );
+    res.json({ updated: rowCount, old_name, new_name });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

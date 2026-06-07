@@ -707,6 +707,7 @@
           <button class="btn btn-outline btn-sm" onclick="fixMaxStack()" style="color:var(--accent);border-color:var(--accent);" title="max_stack aus Stash-Snapshots neu berechnen">🔧 Slots reparieren</button>
           <button class="btn btn-outline btn-sm" onclick="debugStashReservations()" style="color:#8af;border-color:#8af;" title="Zeigt Reservierungsberechnung pro Stash-Item">🔍 Verfügbarkeit debuggen</button>
           <button class="btn btn-outline btn-sm" onclick="debugMerge()" style="color:#fa8;border-color:#fa8;" title="Zeigt warum Duplikate nicht zusammengeführt werden">🔍 Merge debuggen</button>
+          <button class="btn btn-outline btn-sm" onclick="renameItem()" style="color:#adf;border-color:#adf;" title="Itemnamen in allen Transfers umbenennen">✏️ Item umbenennen</button>
           <button class="btn btn-danger" onclick="resetAllTransfers()">🗑 Alle Transfers löschen</button>
         </div>
       </div>
@@ -2369,6 +2370,18 @@ function toast(msg, type = 'info') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.className = type; }, 3000);
 }
+async function renameItem() {
+  const oldName = prompt('Aktueller Itemname (Groß-/Kleinschreibung egal):');
+  if (!oldName) return;
+  const newName = prompt(`Neuer Itemname für "${oldName}":`, oldName);
+  if (!newName || newName === oldName) return;
+  try {
+    const r = await api('POST', '/api/admin/rename-item', { old_name: oldName, new_name: newName });
+    await loadTransfers();
+    toast(`✅ ${r.updated} Transfer(s) umbenannt: "${oldName}" → "${newName}"`, 'ok');
+  } catch (err) { toast(err.message, 'err'); }
+}
+
 async function debugMerge() {
   try {
     const data = await api('GET', '/api/admin/debug-merge');
