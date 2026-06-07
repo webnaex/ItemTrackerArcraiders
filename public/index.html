@@ -695,6 +695,25 @@
         </div>
       </div>
 
+      <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">🌐 Deutsche Übersetzungen (Overrides)</div>
+            <button class="btn btn-outline btn-sm" onclick="loadNameOverrides()" style="margin-left:auto;">↻</button>
+            <button class="btn btn-accent btn-sm" onclick="addNameOverride()">+ Übersetzung</button>
+          </div>
+          <div class="panel-body">
+            <div style="font-size:12px;color:var(--text-dim);margin-bottom:10px;">Für Items, bei denen der API keinen deutschen Namen liefert (z.B. "Vaporizer Regulator" → "Verdampfer-Regulator").</div>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead><tr style="color:var(--text-dim);text-align:left;">
+                <th style="padding:4px 8px;">Englischer Name (API)</th>
+                <th style="padding:4px 8px;">Deutscher Name</th>
+                <th style="padding:4px 8px;width:40px;"></th>
+              </tr></thead>
+              <tbody id="overrides-body"><tr><td colspan="3" style="padding:8px;color:var(--text-dim);">Lade…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
       <!-- Users Panel -->
       <div class="panel" style="border-color:var(--danger);border-width:1px;">
         <div class="panel-header" style="border-bottom-color:var(--danger);">
@@ -707,7 +726,6 @@
           <button class="btn btn-outline btn-sm" onclick="fixMaxStack()" style="color:var(--accent);border-color:var(--accent);" title="max_stack aus Stash-Snapshots neu berechnen">🔧 Slots reparieren</button>
           <button class="btn btn-outline btn-sm" onclick="debugStashReservations()" style="color:#8af;border-color:#8af;" title="Zeigt Reservierungsberechnung pro Stash-Item">🔍 Verfügbarkeit debuggen</button>
           <button class="btn btn-outline btn-sm" onclick="debugMerge()" style="color:#fa8;border-color:#fa8;" title="Zeigt warum Duplikate nicht zusammengeführt werden">🔍 Merge debuggen</button>
-          <button class="btn btn-outline btn-sm" onclick="renameItem()" style="color:#adf;border-color:#adf;" title="Itemnamen in allen Transfers umbenennen">✏️ Item umbenennen</button>
           <button class="btn btn-danger" onclick="resetAllTransfers()">🗑 Alle Transfers löschen</button>
         </div>
       </div>
@@ -1199,7 +1217,7 @@ function setTab(tab) {
   }
   if (tab === 'history') loadHistory();
   if (tab === 'usage') loadUsage();
-  if (tab === 'admin') { loadAdminUsers(); loadAdminSettings(); loadBackups(); }
+  if (tab === 'admin') { loadAdminUsers(); loadNameOverrides(); loadAdminSettings(); loadBackups(); }
 }
 
 // ── Stash ──────────────────────────────────────────────────────────────────
@@ -2370,15 +2388,46 @@ function toast(msg, type = 'info') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.className = type; }, 3000);
 }
-async function renameItem() {
-  const oldName = prompt('Aktueller Itemname (Groß-/Kleinschreibung egal):');
-  if (!oldName) return;
-  const newName = prompt(`Neuer Itemname für "${oldName}":`, oldName);
-  if (!newName || newName === oldName) return;
+// ─── Name-Overrides ──────────────────────────────────────────────────────────
+async function loadNameOverrides() {
   try {
-    const r = await api('POST', '/api/admin/rename-item', { old_name: oldName, new_name: newName });
-    await loadTransfers();
-    toast(`✅ ${r.updated} Transfer(s) umbenannt: "${oldName}" → "${newName}"`, 'ok');
+    const rows = await api('GET', '/api/admin/name-overrides');
+    const tbody = document.getElementById('overrides-body');
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="3" style="padding:8px;color:var(--text-dim);">Keine Übersetzungen hinterlegt.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:6px 8px;color:var(--text-dim);">${r.item_name_en}</td>
+        <td style="padding:6px 8px;font-weight:500;">${r.item_name_de}</td>
+        <td style="padding:6px 8px;">
+          <button class="btn btn-outline btn-sm" onclick="deleteNameOverride(${JSON.stringify(r.item_name_en)})"
+            style="color:var(--danger);border-color:var(--danger);padding:2px 6px;">✕</button>
+        </td>
+      </tr>`).join('');
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+async function addNameOverride() {
+  const enName = prompt('Englischer Name (wie er vom API kommt, z.B. "Vaporizer Regulator"):');
+  if (!enName) return;
+  const deName = prompt(`Deutscher Name für "${enName}":`, enName);
+  if (!deName || deName === enName) return;
+  try {
+    await api('POST', '/api/admin/name-overrides', { item_name_en: enName, item_name_de: deName });
+    await loadNameOverrides();
+    toast(`✅ Übersetzung gespeichert: "${enName}" → "${deName}"`, 'ok');
+  } catch (err) { toast(err.message, 'err'); }
+}
+
+async function deleteNameOverride(enName) {
+  if (!confirm(`Übersetzung für "${enName}" löschen?`)) return;
+  try {
+    await api('DELETE', `/api/admin/name-overrides/${encodeURIComponent(enName)}`);
+    await loadNameOverrides();
+    toast('Übersetzung gelöscht', 'ok');
   } catch (err) { toast(err.message, 'err'); }
 }
 

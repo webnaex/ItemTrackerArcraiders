@@ -58,7 +58,7 @@ app.get('/api/settings/public', async (req, res) => {
 });
 
 // ─── Version (public) ────────────────────────────────────────────────────────
-const APP_VERSION = '2.1.22';
+const APP_VERSION = '2.1.23';
 
 // In-Memory Cache: itemId (ohne Nummer-Suffix) → max_stack
 const maxStackCache = {};
@@ -302,6 +302,35 @@ app.delete('/api/admin/backups/:id', adminOnly, async (req, res) => {
 });
 
 // ─── Stash laden (Admin only) ─────────────────────────────────────────────────
+// ─── Name-Overrides (Admin): Deutsche Übersetzungen für falsch gelieferte Items ─
+app.get('/api/admin/name-overrides', adminOnly, async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT item_name_en, item_name_de FROM item_name_overrides ORDER BY item_name_en');
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/name-overrides', adminOnly, async (req, res) => {
+  const { item_name_en, item_name_de } = req.body;
+  if (!item_name_en || !item_name_de) return res.status(400).json({ error: 'item_name_en und item_name_de erforderlich' });
+  try {
+    await pool.query(
+      `INSERT INTO item_name_overrides (item_name_en, item_name_de)
+       VALUES ($1, $2)
+       ON CONFLICT (item_name_en) DO UPDATE SET item_name_de = $2`,
+      [item_name_en.trim(), item_name_de.trim()]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/name-overrides/:en', adminOnly, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM item_name_overrides WHERE item_name_en = $1', [req.params.en]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/stash/:account', adminOnly, async (req, res) => {
   const { account } = req.params;
   if (!['consta', 'silverbase'].includes(account)) {
@@ -322,6 +351,11 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
       if (id) enNames[id] = item.name;
     });
 
+    // Deutsche Name-Overrides laden (für Items ohne korrekte DE-Übersetzung im API)
+    const { rows: nameOverrideRows } = await pool.query('SELECT item_name_en, item_name_de FROM item_name_overrides');
+    const nameOverrides = {};
+    nameOverrideRows.forEach(r => { nameOverrides[r.item_name_en.toLowerCase()] = r.item_name_de; });
+
     // Items normalisieren: itemId → id, icon_url aus CDN ableiten
     // maxStack pro Item aus Stash ableiten: max(qty) über alle Slots des gleichen Items
     const maxStackByItemId = {};
@@ -335,7 +369,7 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
       const id = item.itemId || item.id || item.item_id;
       return {
         id,
-        name: { de: item.name, en: enNames[id] || item.name },
+        name: { de: nameOverrides[item.name.toLowerCase()] || item.name, en: enNames[id] || item.name },
         quantity: item.quantity ?? item.qty ?? 0,
         icon_url: `https://cdn.arctracker.io/items/v2/${id}.png`,
         type: item.type || item.category || null,
@@ -372,6 +406,18 @@ app.get('/api/stash/:account', adminOnly, async (req, res) => {
 });
 
 // ─── Transfer erstellen (Admin only) ─────────────────────────────────────────
+// Helper: Override für deutschen Itemnamen
+async function applyNameOverride(deNameFromClient) {
+  // Falls der Client einen englischen Namen schickt (kein DE vorhanden), Override anwenden
+  try {
+    const { rows } = await pool.query(
+      'SELECT item_name_de FROM item_name_overrides WHERE LOWER(item_name_en) = LOWER($1)',
+      [deNameFromClient]
+    );
+    return rows[0]?.item_name_de || deNameFromClient;
+  } catch (_) { return deNameFromClient; }
+}
+
 app.post('/api/transfers', adminOnly, async (req, res) => {
   const { expedition_label, to_account, items } = req.body;
 
@@ -706,21 +752,6 @@ app.post('/api/transfers/backfill-names', adminOnly, async (req, res) => {
   }
 });
 
-
-// ─── Item umbenennen (Admin) ──────────────────────────────────────────────────
-app.post('/api/admin/rename-item', adminOnly, async (req, res) => {
-  const { old_name, new_name } = req.body;
-  if (!old_name || !new_name) return res.status(400).json({ error: 'old_name und new_name erforderlich' });
-  try {
-    const { rowCount } = await pool.query(
-      `UPDATE transfers SET item_name = $1 WHERE LOWER(item_name) = LOWER($2)`,
-      [new_name.trim(), old_name.trim()]
-    );
-    res.json({ updated: rowCount, old_name, new_name });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // ─── Waffen-Transfers aufteilen (Admin) ──────────────────────────────────────
 app.post('/api/admin/transfers/split-weapons', adminOnly, async (req, res) => {

@@ -74,6 +74,12 @@ export async function initDB() {
       snapshot JSONB NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS item_name_overrides (
+      item_name_en TEXT PRIMARY KEY,
+      item_name_de TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
   console.log('✅ DB initialisiert');
 
